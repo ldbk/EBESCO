@@ -1,33 +1,136 @@
 
+# ------------------------------------------------------------------------------#
+# SCRIPT PURPOSE
+# ------------------------------------------------------------------------------#
+
+# Prepare spatial supports 
+# Outputs generated:
+#  - Shapefile: English Channel
+#  - Shapefile: Eastern English Channel
+#  - Raster (TIFF and NetCDF): Bathymetry for both English Channel and Eastern EC
+
+# ------------------------------------------------------------------------------#
 
 
-# compute min and max latitude and longitude (rounding down the min and up the max for map limits)
-lat_range <- range(sp_density_CGFS$lat)
-lat_limit <- c(floor(lat_range[1]), ceiling(lat_range[2]))
-
-lon_range <- range(sp_density_CGFS$lon)
-lon_limit <- c(floor(lon_range[1]), ceiling(lon_range[2]))
-
-lat_polygon <- c(lat_limit[1], lat_limit[1], lat_limit[2], lat_limit[2], lat_limit[1])
-lon_polygon <- c(lon_limit[1], lon_limit[2], lon_limit[2], lon_limit[1], lon_limit[1])
 
 
-# Create polygon boundary from longitude and latitude coordinates
-domain_points_df <- data.frame(lon = lon_polygon, lat = lat_polygon, domain_id = 'domain')
+# ------------------------------------------------------------------------------#
+####  LOAD MARINE REGIONS DATA #### 
+# ------------------------------------------------------------------------------#
 
-domain_polygon <- domain_points_df %>%
-  st_as_sf(coords = c("lon", "lat"), crs = st_crs("+proj=longlat +datum=WGS84")) %>%
-  group_by(domain_id) %>%
-  summarise(geometry = st_combine(geometry)) %>%
-  st_cast("POLYGON")
+# Load the shapefile of world sea areas downloaded from 
+# https://www.marineregions.org/downloads.php#iho
+SeaAreas <- terra::vect(here("01_DATA", "shapefiles", "World_Seas_IHO_v3", "World_Seas_IHO_v3.shp"))
 
-sf_ices_rec <- sf::st_read(here("01_DATA/ICES_rectangles/ICES_Statistical_Rectangles_Eco.shp")) %>%
-  sf::st_set_crs( "+proj=longlat +datum=WGS84") %>%
-  st_intersection(domain_polygon)
+# Inspect the sea area names to check availability
+# unique(SeaAreas$NAME)  
 
-sf_ices_areas <- sf::st_read(here("01_DATA/ICES_areas/ICES_Areas_20160601_cut_dense_3857.shp")) %>%
-  sf::st_transform(crs =  st_crs(sf_ices_rec)) %>%
-  st_make_valid() %>%
-  st_intersection(domain_polygon)
+# Extract only the English Channel polygon from the dataset
+English_Channel <- SeaAreas[SeaAreas$NAME == "English Channel", ] 
+
+# Export the extracted English Channel shapefile for later use
+# writeVector(English_Channel, here("01_DATA/shapefiles/English_Channel/English_Channel.shp"))
+
+
+
+
+
+# ------------------------------------------------------------------------------#
+#### EASTERN ENGLISH CHANNEL SHAPEFILE #### 
+# ------------------------------------------------------------------------------#
+
+# Define a geographic bounding box to delimit the eastern part of the Channel
+east_ext <- ext(-1.5, 1.930905, 49.2, 51.166)
+
+# Convert the extent into a polygon with the same CRS as the English Channel shapefile
+east_box <- as.polygons(east_ext, crs = crs(English_Channel))
+
+# Clip the English Channel using the polygon to keep only its eastern part
+Eastern_English_Channel <- intersect(English_Channel, east_box)
+
+# Plot the spatial result to visually confirm the extracted marine area
+# as.data.frame(Eastern_English_Channel)
+# plot(Eastern_English_Channel, col = "grey80", main = "Eastern_English_Channel")
+
+# Save
+# writeVector(Eastern_English_Channel, here("01_DATA/shapefiles/Eastern_English_Channel/Eastern_English_Channel.shp"))
+
+
+
+# ------------------------------------------------------------------------------#
+#### EASTERN ENGLISH CHANNEL BATHYMETRY #### 
+# ------------------------------------------------------------------------------#
+
+# Load bathymetry raster from EMODnet 
+bathy_emod <- rast(here("01_DATA", "bathymetry", "E4_2024.nc", "E4_2024.nc"), sub = "elevation")
+
+# Load Eastern English Channel shapefile as SpatVector
+EEC <- vect(here("01_DATA", "shapefiles", "Eastern_English_Channel", "Eastern_English_Channel.shp"))
+
+# Reproject shapefile to match raster CRS 
+EEC_shapefile  <- project(EEC, bathy_emod)
+
+# Crop raster to polygon bounding box
+bathy_EEC_crop <- crop(bathy_emod, EEC_shapefile)
+
+# Mask with the polygon 
+bathy_EEC <- mask(bathy_EEC_crop, EEC_shapefile)
+
+# Convert depth in absolute value
+bathy_EEC_depth <- app(bathy_EEC, fun = abs)
+names(bathy_EEC_depth) <- "depth"
+
+# Plot
+# plot(bathy_EEC_depth, main = "Bathymetry – Eastern English Channel")
+
+# Save depth raster both as TIFF and NetCDF 
+# writeRaster(bathy_EEC_depth, 
+#             here("01_DATA/bathymetry/EEC_Bathy/Bathy_Eastern_English_Channel.tif"), 
+#             overwrite = TRUE)
+# 
+# writeCDF(bathy_EEC_depth, 
+#          filename = here("01_DATA/bathymetry/EEC_Bathy/Bathy_Eastern_English_Channel.nc"),
+#          varname = "depth", unit = "m", overwrite=TRUE)
+
+
+
+
+
+
+# ------------------------------------------------------------------------------#
+#### ENTIRE ENGLISH CHANNEL BATHYMETRY #### 
+# ------------------------------------------------------------------------------#
+
+
+# Load bathymetry raster as SpatRaster
+bathy_emod <- rast(here("01_DATA", "bathymetry", "E4_2024.nc", "E4_2024.nc"), sub = "elevation")
+
+# Load Eastern English Channel shapefile as SpatVector
+EC <- vect(here("01_DATA", "shapefiles", "English_Channel", "English_Channel.shp"))
+
+# Reproject shapefile to match raster CRS 
+EC_shapefile  <- project(EC, bathy_emod)
+
+# Crop to polygon extent 
+bathy_EC_crop <- crop(bathy_emod, EC_shapefile)
+
+# Mask with the polygon 
+bathy_EC <- mask(bathy_EC_crop, EC_shapefile)
+
+# depth in absolute value
+bathy_EC_depth <- app(bathy_EC, fun = abs)
+names(bathy_EC_depth) <- "depth"
+
+# # Plot
+# plot(bathy_EC_depth, main = "Bathymetry – Eastern English Channel")
+
+# # Save depth raster both as TIFF and NetCDF 
+# writeRaster(bathy_EC_depth, 
+#             here("01_DATA/bathymetry/EC_Bathy/Bathy_English_Channel.tif"), 
+#             overwrite = TRUE)
+# 
+# writeCDF(bathy_EC_depth, 
+#          filename = here("01_DATA/bathymetry/EC_Bathy/Bathy_English_Channel.nc"),
+#          varname = "depth", unit = "m", overwrite=TRUE)
 
 
