@@ -1,0 +1,486 @@
+---
+title: "CGFS data exploration"
+date: "2025-11-12"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# LOAD THE PACKAGES
+
+library(ggplot2)
+library(dplyr)
+library(here)
+library(devtools)
+library(TMBhelper)
+library(TMB)
+library(tidyverse)
+library(pak)
+library(readxl)
+library(readr)
+library(sf)
+library(sdmTMB)
+library(ncdf4)
+library(terra)
+library(raster)
+library(ggOceanMaps)
+library(ggspatial) 
+
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# LOAD THE DATA
+
+catch_CGFS <- read_delim(here("01_DATA", "survey", "WCGFS", "WCGFS_2018_2024_ELFIC.V1.5_catch_2025-03-31.csv"), delim = ";", escape_double = FALSE, trim_ws = TRUE, show_col_types = FALSE)
+
+operation_CGFS <- read_delim(here("01_DATA", "survey", "WCGFS", "WCGFS_2018_2024_ELFIC.V1.5_operation_2025-03-31.csv"), delim = ";", escape_double = FALSE, trim_ws = TRUE, show_col_types = FALSE)
+
+# others_parameters <- read_delim(here("01_DATA", "survey", "WCGFS", "WCGFS_2018_2024_ELFIC.V1.5_otherParameters_2025-03-31.csv"), delim = ";", escape_double = FALSE, trim_ws = TRUE, show_col_types = FALSE)
+# --> many NA for depth variable
+
+# operation_CGFS_clean <- operation_CGFS %>%
+#   filter(!is.na(startLatDD), !is.na(startLongDD))
+
+# unique(catch_CGFS$comment)
+# unique(operation_CGFS$comment)
+# unique(operation_CGFS$gear)
+# unique(catch_CGFS$stationCode)
+
+# lat_range <- range(operation_CGFS$startLatDD)
+# lon_range <- range(operation_CGFS$startLongDD)
+
+```
+
+
+## SAMPLING EFFORT  
+
+### Overview of Sampling Locations<br>  
+
+#### All Survey Years (1988-2024)<br>  
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+
+bbox <- c(-6, -1.3, 48.3, 50.8)   # Eastern English Channel coordinates
+
+```
+
+```{r echo=FALSE, fig.height=8, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+basemap(limits = bbox ) +
+  geom_spatial_point(data = operation_CGFS, 
+                     aes(x = startLongDD, y = startLatDD), color = "blue")+
+  facet_wrap(~ year)+
+  ggtitle("Spatial distribution of haul start positions by year from the CGFS campaign")+
+  labs(x="Longitude", y="Latitude")
+
+```
+```{r echo=FALSE, fig.height=8, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+basemap(limits = bbox ) +
+  geom_spatial_point(data = operation_CGFS, 
+                     aes(x = startLongDD, y = startLatDD, color = factor(year)), 
+                     size = 2, alpha = 0.4)+
+  ggtitle("Spatial distribution of haul start positions by year from the CGFS campaign")+
+  labs(x="Longitude", y="Latitude", color="Years")
+
+```
+No sampling occurred beyond 51°N after 2014.<br>  
+October 2015: CGFS survey conducted on the R/V Thalassa — station layout adjusted according to the vessel’s draft, reducing the number of stations in the eastern English Channel from 110 to 74.<br>  
+September / October 2020: No authorization granted for operations in UK waters.<br>  
+Historical Overview of the Sampling Protocol : https://sextant.ifremer.fr/record/209fbac0-afce-441c-8844-558796a6b873/   
+
+<br>
+<br>
+<br>
+\vspace{1cm}
+
+
+
+## *Solea solea* density 
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# select data corresponding to the species of interest
+sole_catch_CGFS <- catch_CGFS %>%
+  dplyr::filter(scientificName == "Solea solea") %>%
+  dplyr::select(serie, year, stationCode, operationID, haulID, totalNumber, totalWeightKg)
+
+# Combine catch, coordinates and other parameters data frames
+sole_data_CGFS <- operation_CGFS %>%
+  left_join(sole_catch_CGFS, by = c("serie", "year", "stationCode", "operationID", "haulID")) 
+
+# Replace missing values in totalNumber and totalWeightKg with 0
+# Calculate midpoint coordinates for each haul
+# Compute density in kg/km²
+# Create a presence/absence variable (0 = absence, 1 = presence)
+# Keep only data from 2015 onwards
+sole_data_CGFS_density <- sole_data_CGFS %>%
+  mutate(totalNumber = ifelse(is.na(totalNumber), 0, totalNumber),
+         totalWeightKg = ifelse(is.na(totalWeightKg), 0, totalWeightKg)) %>%
+  mutate(lat = (endLatDD + startLatDD)/2,
+         lon = (endLongDD + startLongDD)/2) %>%
+  mutate(densityKgKm2 = totalWeightKg/sweptAreaKm2) %>%
+  mutate(presence_absence = ifelse(totalWeightKg == 0, 0, 1))
+
+```
+```{r echo=FALSE, fig.height=8, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Map of Solea solea density by year
+basemap(limits = bbox ) +
+  geom_spatial_point(data = sole_data_CGFS_density, 
+                     aes(x = startLongDD, y = startLatDD, color = factor(presence_absence), 
+                         size = densityKgKm2), 
+                     alpha = 0.6)+
+  scale_color_manual(values = c("0" = "red", "1" = "blue"), labels = c("Absence", "Presence"), name ="Presence") +
+  scale_size_continuous(name ="Density (kg/km²)") +
+  facet_wrap(~ year)+
+  ggtitle(expression(paste("Spatial distribution of ", italic("Solea solea"), " density by year from the CGFS campaign")))
+```
+
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Scatter plot of density by year
+
+ggplot(sole_data_CGFS_density, aes(x = totalNumber, y = totalWeightKg)) +
+  geom_point()+
+  geom_smooth(method = "lm")+
+  ggtitle(expression(paste("Relationship between abundance and biomass of ", italic("Solea solea"))))+
+  labs(x = "Total number of soles", y = "Total weight of soles (kg)", subtitle = "Each point represents a haul, between 2015-2024")
+
+```
+<br>
+<br>
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Scatter plot of density by year
+
+ggplot(sole_data_CGFS_density, aes(x = totalNumber, y = totalWeightKg)) +
+  geom_point() +
+  geom_smooth(method = "lm")+
+  facet_wrap(~year, scales = "free") +
+  ggtitle(expression(paste("Relationship between abundance and biomass of ", italic("Solea solea"), " by year")))+
+  labs(x = "Total number of sole", y = "Total weight of sole (kg)", subtitle = "Each point represents a haul")
+
+```
+
+<br>
+<br>
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Scatter plot of density by year
+
+ggplot(sole_data_CGFS_density, aes(x = factor(year), y = densityKgKm2)) +
+  geom_point()+
+  theme_minimal() +
+  labs(x = "Years", y = "Density (kg/km²)")+
+  ggtitle(expression(paste("Density of ", italic("Solea solea"), " per haul across years")))
+
+```
+<br>
+<br>
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Scatter plot of density by year
+
+ggplot(sole_data_CGFS_density, aes(x = factor(year), y = densityKgKm2)) +
+  geom_boxplot(outlier.alpha = 0.4)+
+  geom_violin()+
+  theme_minimal() +
+  labs(x = "Years", y = "Density (kg/km²)")+
+  ggtitle(expression(paste("Density of ", italic("Solea solea"), " per haul across years")))
+
+```
+<br>
+<br>
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+ggplot(subset(sole_data_CGFS_density, densityKgKm2 > 0), aes(x = factor(year), y = densityKgKm2)) +
+  geom_boxplot(outlier.alpha = 0.4)+
+  geom_violin(alpha=0.4) +
+  theme_minimal() +
+  labs(x = "Years", y = "Density (kg/km², only >0)") +
+  ggtitle(expression(paste("Density of ", italic("Solea solea"), " per haul (excluding zeros)")))
+
+
+```
+
+<br>
+<br>
+\vspace{2cm}
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Histogram of density by year
+
+ggplot(sole_data_CGFS_density, aes(x = densityKgKm2)) +
+  geom_histogram()+
+  facet_wrap(~year)+
+  labs(x = "Density (kg/km²)", y= "Number of hauls") +
+  theme_minimal()+
+  theme(strip.background = element_rect(color = "black", fill = "grey90"))+
+  ggtitle(expression(paste("Frequency distribution of ", italic("Solea solea"), " density per year")))
+
+```
+
+<br>
+<br>
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Column plot of total density by year
+
+ggplot(sole_data_CGFS_density, aes(x = factor(year), y=densityKgKm2)) + 
+  geom_col() +
+  labs(y = "Density (kg/km²)", x = "Years") +
+  ggtitle(expression(paste("Total density of ", italic("Solea solea"), " from CGFS hauls per year")))+
+  theme_minimal()
+
+```
+
+
+
+## *Dicentrarchus labrax* density since 2015  
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# select data corresponding to the species of interest
+bar_catch_CGFS <- catch_CGFS %>%
+  dplyr::filter(scientificName == "Dicentrarchus labrax") %>%
+  dplyr::select(serie, year, stationCode, operationID, haulID, totalNumber, totalWeightKg)
+
+# Combine catch, coordinates and other parameters data frames
+bar_data_CGFS <- operation_CGFS %>%
+  left_join(bar_catch_CGFS, by = c("serie", "year", "stationCode", "operationID", "haulID")) 
+
+# Replace missing values in totalNumber and totalWeightKg with 0
+# Calculate midpoint coordinates for each haul
+# Compute density in kg/km²
+# Create a presence/absence variable (0 = absence, 1 = presence)
+# Keep only data from 2015 onwards
+bar_data_CGFS_density <- bar_data_CGFS %>%
+  mutate(totalNumber = ifelse(is.na(totalNumber), 0, totalNumber),
+         totalWeightKg = ifelse(is.na(totalWeightKg), 0, totalWeightKg)) %>%
+  mutate(lat = (endLatDD + startLatDD)/2,
+         lon = (endLongDD + startLongDD)/2) %>%
+  mutate(densityKgKm2 = totalWeightKg/sweptAreaKm2) %>%
+  mutate(presence_absence = ifelse(totalWeightKg == 0, 0, 1))
+
+```
+```{r echo=FALSE, fig.height=8, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Map of Dicentrarchus labrax density by year
+basemap(limits = bbox ) +
+  geom_spatial_point(data = bar_data_CGFS_density, 
+                     aes(x = startLongDD, y = startLatDD, color = factor(presence_absence), 
+                         size = densityKgKm2), 
+                     alpha = 0.6)+
+  scale_color_manual(values = c("0" = "red", "1" = "blue"), labels = c("Absence", "Presence"), name ="Presence") +
+  scale_size_continuous(name ="Density (kg/km²)") +
+  facet_wrap(~ year)+
+  ggtitle(expression(paste("Spatial distribution of ", italic("Dicentrarchus labrax"), " density by year from the CGFS campaign")))
+```
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Scatter plot of density by year
+
+ggplot(bar_data_CGFS_density, aes(x = totalNumber, y = totalWeightKg)) +
+  geom_point()+
+  geom_smooth(method = "lm")+
+  ggtitle(expression(paste("Relationship between abundance and biomass of ", italic("Dicentrarchus labrax"))))+
+  labs(x = "Total number of seabass", y = "Total weight of seabass (kg)", subtitle = "Each point represents a haul, between 2015-2024")
+
+```
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+bar_clean_CGFS_density <- bar_data_CGFS_density %>%
+  filter(haulID != "2017_1_V0434_35")
+
+# Scatter plot of density by year
+ggplot(bar_clean_CGFS_density, aes(x = totalNumber, y = totalWeightKg)) +
+  geom_point()+
+  geom_smooth(method = "lm")+
+  ggtitle(expression(paste("Relationship between abundance and biomass of ", italic("Dicentrarchus labrax"))))+
+  labs(x = "Total number of seabass", y = "Total weight of seabass (kg)", subtitle = "Each point represents a haul, between 2015-2024, haul 2017_1_V0434_35 removed")
+
+```
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Scatter plot of density by year
+
+ggplot(bar_clean_CGFS_density, aes(x = totalNumber, y = totalWeightKg)) +
+  geom_point() +
+  geom_smooth(method = "lm")+
+  facet_wrap(~year, scales = "free") +
+  ggtitle(expression(paste("Relationship between abundance and biomass of ", italic("Dicentrarchus labrax"), " by year")))+
+  labs(x = "Total number of seabass", y = "Total weight of seabass (kg)", subtitle = "Each point represents a haul, haul 2017_1_V0434_35 removed")
+
+```
+
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=8, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Map of Dicentrarchus labrax density by year
+basemap(limits = bbox ) +
+  geom_spatial_point(data = bar_clean_CGFS_density, 
+                     aes(x = startLongDD, y = startLatDD, color = factor(presence_absence), 
+                         size = densityKgKm2), 
+                     alpha = 0.6)+
+  scale_color_manual(values = c("0" = "red", "1" = "blue"), labels = c("Absence", "Presence"), name ="Presence") +
+  scale_size_continuous(name ="Density (kg/km²)") +
+  facet_wrap(~ year)+
+  ggtitle(expression(paste("Spatial distribution of ", italic("Dicentrarchus labrax"), " density by year from the CGFS campaign")))+
+  labs(subtitle = "haul 2017_1_V0434_35 removed")
+
+```
+
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Scatter plot of density by year
+
+ggplot(bar_clean_CGFS_density, aes(x = factor(year), y = densityKgKm2)) +
+  geom_point()+
+  theme_minimal() +
+  labs(x = "Years", y = "Density (kg/km²)", subtitle = "Each point represents a haul, haul 2017_1_V0434_35 removed")+
+  ggtitle(expression(paste("Density of ", italic("Dicentrarchus labrax"), " per haul across years")))
+
+```
+<br>
+<br>
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Scatter plot of density by year
+
+ggplot(bar_clean_CGFS_density, aes(x = factor(year), y = densityKgKm2)) +
+  geom_boxplot(outlier.alpha = 0.4)+
+  geom_violin()+
+  theme_minimal() +
+  labs(x = "Years", y = "Density (kg/km²)", subtitle = "haul 2017_1_V0434_35 removed")+
+  ggtitle(expression(paste("Density of ", italic("Dicentrarchus labrax"), " per haul across years")))
+
+```
+<br>
+<br>
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+ggplot(subset(bar_clean_CGFS_density, densityKgKm2 > 0), aes(x = factor(year), y = densityKgKm2)) +
+  geom_boxplot(outlier.alpha = 0.4)+
+  geom_violin(alpha=0.4) +
+  theme_minimal() +
+  labs(x = "Years", y = "Density (kg/km², only >0)", subtitle = "Excluding absence,  haul 2017_1_V0434_35 removed") +
+  ggtitle(expression(paste("Density of ", italic("Dicentrarchus labrax"), " per haul (excluding zeros)")))
+
+
+```
+
+<br>
+<br>
+\vspace{2cm}
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Histogram of density by year
+
+ggplot(bar_clean_CGFS_density, aes(x = densityKgKm2)) +
+  geom_histogram()+
+  facet_wrap(~year)+
+  labs(x = "Density (kg/km²)", y= "Number of hauls") +
+  theme_minimal()+
+  theme(strip.background = element_rect(color = "black", fill = "grey90"))+
+  ggtitle(expression(paste("Frequency distribution of ", italic("Dicentrarchus labrax"), " density per year")))
+
+```
+
+<br>
+<br>
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Column plot of total density by year
+
+ggplot(bar_clean_CGFS_density, aes(x = factor(year), y=densityKgKm2)) + 
+  geom_col() +
+  labs(y = "Density (kg/km²)", x = "Years", subtitle = "haul 2017_1_V0434_35 removed") +
+  ggtitle(expression(paste("Total density of ", italic("Dicentrarchus labrax"), " from CGFS hauls per year")))+
+  theme_minimal()
+
+```
+
+<br>
+<br>
+\vspace{2cm}
+
+
+
+### BATHYMETRY
+
+Visualization of the entire downloaded raster
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Load the bathymetry raster from a NetCDF file
+bathy_emod <- raster(here("01_DATA", "bathymetry", "E4_2024.nc", "E4_2024.nc"), varname ="elevation")
+
+# Plot the bathymetry
+plot(bathy_emod, main = "Bathymetry EMOD 2024", col = terrain.colors(100))
+
+# Define the bounding box coordinates: xmin, xmax, ymin, ymax
+bbox <- c(-6, -1.3, 48.3, 50.8)
+
+```
+<br>
+<br>
+\vspace{2cm}
+
+Focus on the Western English Channel
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Define the bounding box coordinates: xmin, xmax, ymin, ymax
+bbox <- c(-6, -1.3, 48.3, 50.8)
+
+# Create an extent object from the bounding box
+bbox_extent <- extent(bbox)
+
+# Crop the raster to the defined extent
+bathy_crop <- crop(bathy_emod, bbox_extent)
+
+# Plot the cropped bathymetry
+plot(bathy_crop, main = "Bathymetry of Western English Channel", col = terrain.colors(100))
+
+
+```
+
+
+
+
