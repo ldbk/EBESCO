@@ -8,24 +8,13 @@ html_document :
   toc: true
 toc_float: true
 editor_options: 
-  chunk_output_type: inline
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_knit$set(root.dir = getwd())                                # garde le working dir actif
 knitr::opts_knit$set(envir = globalenv())                               # utilise l'env global
 knitr::opts_chunk$set(echo = FALSE, message=FALSE,warning=FALSE)
-```
-
-```{r, include=FALSE}
-
-# Packages 
-library(here)
-library(ggplot2)
-library(tidyverse)
-library(viridis)
-library(sf)
-library(visreg)
 ```
 
 
@@ -64,7 +53,7 @@ if (study_domain == "Eastern_English_Channel") {
 EC_sf <- st_as_sf(EC_shp) %>% st_transform(4326)
 
 # Plot presence/absence + biomass density if the model includes a density component
-if (grepl("density", model_version)) {               
+if (response == "densityKgKm2") {               
 basemap(data = EC_sf, land.col = "grey80", land.border = "grey80") +   
   geom_sf(data = EC_sf, fill = NA, color= NA) +        
   geom_spatial_point(data = data_CGFS_crs, 
@@ -86,7 +75,7 @@ basemap(data = EC_sf, land.col = "grey80", land.border = "grey80") +
 }
 
 
-# if (grepl("density", model_version)) {               
+# if (response == "densityKgKm2") {               
 # basemap(data = EC_sf, land.col = "grey80", land.border = "grey80") +   
 #   geom_sf(data = EC_sf, fill = NA, color= NA) +        
 #   geom_spatial_point(data = data_CGFS_crs, 
@@ -112,7 +101,7 @@ basemap(data = EC_sf, land.col = "grey80", land.border = "grey80") +
 # }
 
 # Plot presence/absence if the model includes a presence component
-if (grepl("presence", model_version)) {               
+if (response == "presence_absence") {               
 basemap(data = EC_sf, land.col = "grey80", land.border = "grey80") +   
   geom_sf(data = EC_sf, fill = NA, color= NA) +        
   geom_spatial_point(data = data_CGFS_crs, 
@@ -139,7 +128,7 @@ basemap(data = EC_sf, land.col = "grey80", land.border = "grey80") +
 
 # map CGFS station depths by year 
 
-if (grepl("depth", model_version)) {               
+if (isTRUE(depth_FE)) {               
 
 basemap(data = EC_sf, land.col = "grey80", land.border = "grey80") +   
   geom_sf(data = EC_sf, fill = NA, color= NA) +        
@@ -152,6 +141,42 @@ basemap(data = EC_sf, land.col = "grey80", land.border = "grey80") +
         strip.background = element_rect(fill = "grey40", color = "white"),
         strip.text = element_text(color = "white", face = "bold"))+
   labs(title = "Profondeur aux stations CGFS", x = "", y = "") 
+
+}
+
+```
+
+```{r echo=FALSE}
+
+# map CGFS station substrate by year 
+
+if (isTRUE(substrate_factor_FE)) {               
+
+data_CGFS_crs$substrate_txt <- factor(data_CGFS_crs$substrate,
+                                      levels = 1:5,
+                                      labels = c("Vase à sable vaseux",
+                                                 "Sable",
+                                                 "Sédiments grossiers",
+                                                 "Sédiments mixtes",
+                                                 "Roches et blocs"))
+
+substrate_palette_txt <- c("Vase à sable vaseux" = "#CC99CC",
+                           "Sable" = "#fdb462",
+                           "Sédiments grossiers" = "#7fc97f",
+                           "Sédiments mixtes" = "#80b1d3",
+                           "Roches et blocs" = "#fb8072")
+
+basemap(data = EC_sf, land.col = "grey80", land.border = "grey80") +   
+  geom_sf(data = EC_sf, fill = NA, color= NA) +        
+  geom_spatial_point(data = data_CGFS_crs, 
+                     aes(x = lon, y = lat, color = factor(substrate_txt))) +
+  facet_wrap(~ year) +
+  scale_color_manual(values = substrate_palette_txt) +
+  theme(panel.grid = element_blank(),
+        panel.border = element_rect(color = "white", fill = NA, linewidth = 1),
+        strip.background = element_rect(fill = "grey40", color = "white"),
+        strip.text = element_text(color = "white", face = "bold"))+
+  labs(title = "Nature du substrat aux stations CGFS", x = "", y = "", color = "Nature du substrat")  
 
 }
 
@@ -220,9 +245,10 @@ Ainsi, lorsque le modèle est ajusté avec cette nouvelle mesh, la présence d�
 ```{r}
 print(model_formula)
 ```
- <br/>
-0 + as.factor(year)  --> prédicteur catégoriel qui permet l’estimation moyenne pour chaque période temporelle (--> indice).  
-Le "0 +" supprime l’intercept, qui est déjà présent grâce à spatial = "on" (valeur par défaut).
+
+```{r}
+print(distribution_family)
+```
 
  <br/>
 <br/> 
@@ -245,32 +271,9 @@ print(summary(model))
 
  <br/>
  
-Matérn range : distance au-delà de laquelle deux points sont considérés comme effectivement indépendants
+Matérn range : distance au-delà de laquelle deux points sont considérés comme effectivement indépendants (la corrélation spatiale devient négligeable, ~0.13 correlation)
 
 
- <br/>
-Les distributions Tweedie constituent une famille de distributions de probabilité qui englobe plusieurs cas particuliers :  
-- les distributions normales gaussiennes  
-- les distributions gamma et inverse-gamma (purement continues)  
-- la distribution de Poisson (purement discrète)  
-- les distributions composées Poisson–gamma, qui possèdent une masse de probabilité positive en zéro tout en étant continues pour les valeurs non nulles.  
-
- <br/>
- 
-Distribution de Tweedie : gère les données continues avec beaucoup de zéros (densité de biomasse)  
-Tweedie p : paramètre p (puissance) de la distribution de Tweedie   
-      - p < 0 : distribution stable extrême  
-      - p = 0 : distribution normale  
-      - 0 < p < 1 : il n’existe aucun modèle de Tweedie  
-      - p = 1 : distribution de Poisson  
-      - 1 < p < 2 : distribution composée Poisson–gamma  
-      - p = 2 : distribution gamma  
-      - 2 < p < 3 : distributions stables positives  
-      - p = 3 : distribution inverse gaussienne  
-      - p > 3 : distributions stables positives  
-      - p = ∞ : distributions stables extrêmes  
-
- <br/>
  <br/>
  <br/>
 
@@ -288,24 +291,12 @@ print(tidy(model,'ran_pars',conf.int = TRUE))
   
  <br/>
 * range : distance au-delà de laquelle deux points sont considérés comme effectivement indépendants  
-* phi : paramètre d’échelle de l’erreur d’observation  
-* sigma_O : écart-type du processus spatial (omega)  
-* sigma_E : écart-type du processus spatio-temporel (epsilon)  
-* tweedie_p : paramètre p (puissance) de la distribution de Tweedie  
+* phi : paramètre de dispersion d'une distribution (variabilité des données autour de la moyenne --> détermine à quel point les observations sont plus ou moins dispersées que ce que prédit un modèle) 
+* sigma_O : écart-type marginal du champ aléatoire spatial (omega) : mesure l’amplitude moyenne de la variation spatiale qui ne changent pas dans le temps et qui ne sont pas expliquées par le modèle (plus il est faible, plus les covariables expliquent bien la structure spatiale)  
+* sigma_E : écart-type marginal du champ spatio-temporel (epsilon) : mesure l’amplitude moyenne des variations spatiales qui changent dans le temps et qui ne sont pas expliquées par le modèle (plus il est faible, la structure spatio-temporelle est déjà bien capturée par les autres composantes du modèle)  
 
   
- <br/>
-cAIC
-```{r}
-print(cAIC(model))
-```
- <br/>
 
-Le Critère d’Information d’Akaike conditionnel (cAIC) est conçu pour optimiser la performance prédictive attendue hors échantillon pour de nouvelles données qui partagent les mêmes effets aléatoires que les données utilisées pour l’ajustement du modèle, par exemple lors d’interpolations spatiales. Dans ce sens, il constitue une approximation rapide pour optimiser la structure du modèle basée sur une validation croisée de type k-fold.  
-
-[À l’inverse, AIC() calcule le Critère d’Information d’Akaike marginal, conçu pour optimiser la performance prédictive attendue sur de nouvelles données contenant de nouveaux effets aléatoires, par exemple dans le cas d’extrapolation].
-<br/>
-<br/>
 
 ## 3.3. Résidus
 
@@ -321,12 +312,15 @@ qqline(data_test_model$residuals)
 
 <br/>
 
+### Tests statistiques DHARMa standards sur les résidus : uniformité, dispersion et valeurs aberrantes
+
 ```{r echo=FALSE}
 
-ggplot(data_test_model, aes(X, Y, fill = residuals)) +
+ggplot(data_test_model, aes(lon, lat, fill = residuals)) +
   scale_fill_gradient2() +
   geom_point(color = "grey", size = 2, shape = 21) +
-  facet_wrap(~year) 
+  facet_wrap(~year) + 
+  labs(x="", y="")
 
 ```
   
@@ -339,13 +333,36 @@ Des schémas spatiaux marqués suggèrent l’absence de covariables pertinentes
 
 ```{r echo=FALSE}
 
-model_sim <- simulate(model, nsim = 500, type = "mle-mvn")
-dharma_residuals(model_sim, model)
-dharma_model <- dharma_residuals(model_sim, model, return_DHARMa = TRUE)
-plot(dharma_model)
-DHARMa::testResiduals(dharma_model)
+# Simule 500 jeux de données à partir du modèle ajusté, en tenant compte de l’incertitude 
+# sur les paramètres via une approximation normale multivariée autour du MLE
+model_sim <- simulate(model, nsim = 1000, type = "mle-mvn") 
+
+# "mle-mvn" : les effets fixes sont aux MLE, mais les effets aléatoires sont tirés d’un 
+# échantillon approximatif unique. Cette option est recommandée lorsque les simulations sont 
+# utilisées pour des tests de qualité d’ajustement avec le package DHARMa.
+
+simulationOutput <- dharma_residuals(model_sim, model, return_DHARMa = TRUE)
+
+plot(simulationOutput)
+
+# DHARMa general residual test : Calls uniformity, dispersion and outliers tests.
+DHARMa::testResiduals(simulationOutput,plot=TRUE)
 
 ```
+
+Simulation de 500 jeux de données à partir du modèle ajusté, en tenant compte de l’incertitude sur les paramètres via une approximation normale multivariée autour du maximum de vraisemblance
+
+Si les données sont cohérentes avec les hypothèses du modèle, ces résidus doivent suivre une loi normale centrée réduite N(0,1).
+
+Test d'uniformité 
+teste des résidus si la distribution globale est conforme aux attentes
+
+Test de dispersion 
+teste si la dispersion simulée est égale à la dispersion observée
+
+Test outliers
+teste s’il y a plus de valeurs aberrantes issues des simulations que prévu
+
 
 
 # 4. Grille de projection
@@ -355,7 +372,7 @@ DHARMa::testResiduals(dharma_model)
 # plot projection grid
 
 
-if (!grepl("depth", model_version)) {               
+if (!isTRUE(depth_FE)) {               
 
 ggplot(grid_pred, aes(lon, lat)) +
   geom_tile(width = res_deg_lon, height = res_deg_lat, color = "black", fill = "white") +
@@ -374,7 +391,7 @@ ggplot(grid_pred, aes(lon, lat)) +
 } 
 
 
-if (grepl("depth", model_version)) {               
+if (isTRUE(depth_FE)) {               
 
 ggplot(grid_pred, aes(lon, lat, fill = depth)) + 
   geom_raster() +
@@ -396,11 +413,149 @@ ggplot(grid_pred, aes(lon, lat, fill = depth)) +
 ```
 
 
-
-# 5. Prédictions
 ```{r echo=FALSE}
 
-if (grepl("density", model_version)) {               
+if (isTRUE(substrate_factor_FE)) {               
+
+  substrate_labels <- c("1" = "Vase à sable vaseux",
+                        "2" = "Sable",
+                        "3" = "Sédiments grossiers",
+                        "4" = "Sédiments mixtes",
+                        "5" = "Roches et blocs")
+    
+  substrate_palette <- c("1" = "#CC99CC",
+                         "2" = "#fdb462",
+                         "3" = "#7fc97f",
+                         "4" = "#80b1d3",
+                         "5" = "#fb8072")
+  
+  plot_before <- ggplot(grid_substrate_before, aes(lon, lat, fill = factor(substrate))) +
+    geom_tile() +
+    geom_sf(data=land, fill="grey80", inherit.aes = FALSE, color = NA) +
+    coord_sf(xlim = c(xmin_plot, xmax_plot), 
+             ylim = c(ymin_plot, ymax_plot), 
+             expand = FALSE) +
+    theme(panel.grid = element_blank(),
+          panel.background = element_rect(fill = "white", colour = NA), 
+          panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
+          strip.background = element_rect(fill = "grey40", color = "white"),
+          strip.text = element_text(color = "white", face = "bold"))+
+    scale_fill_manual(values = substrate_palette,
+                      labels = unname(substrate_labels)) +
+    labs(title = "Cartographie des classes de substrat",
+    subtitle = "AVANT traitement des cellules de nature 'Roches et blocs' sans données d’échantillonnage", 
+    x="", y="", fill = "Nature du substrat")
+  
+  plot_after <- ggplot(grid_substrate_after, aes(lon, lat, fill = factor(substrate))) +
+    geom_tile() +
+    geom_sf(data=land, fill="grey80", inherit.aes = FALSE, color = NA) +
+    coord_sf(xlim = c(xmin_plot, xmax_plot), 
+             ylim = c(ymin_plot, ymax_plot), 
+             expand = FALSE) +
+    theme(panel.grid = element_blank(),
+          panel.background = element_rect(fill = "white", colour = NA), 
+          panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
+          strip.background = element_rect(fill = "grey40", color = "white"),
+          strip.text = element_text(color = "white", face = "bold"))+
+        scale_fill_manual(values = substrate_palette,
+                      labels = unname(substrate_labels)) +
+    labs(subtitle = "APRES traitement des cellules de nature 'Roches et blocs' sans données d’échantillonnage", 
+    x="", y="", fill = "Nature du substrat")
+
+
+
+  ggpubr::ggarrange(plot_before, 
+                    plot_after, 
+                    ncol = 1, 
+                    common.legend = TRUE, legend = "right")
+  
+}
+
+```
+                    
+```{r echo=FALSE}
+
+# plot projection grid
+
+if (isTRUE(substrate_factor_FE)) {               
+
+ggplot(grid_pred, aes(lon, lat, fill = factor(substrate))) + 
+  geom_raster() +
+  geom_sf(data=land, fill="grey80", inherit.aes = FALSE, color = NA) +
+  coord_sf(xlim = c(xmin_plot, xmax_plot), 
+           ylim = c(ymin_plot, ymax_plot), 
+           expand = FALSE) +
+  scale_fill_manual(values = substrate_palette,
+                   labels = unname(substrate_labels)) +
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = NA), 
+        panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
+        strip.background = element_rect(fill = "grey40", color = "white"),
+        strip.text = element_text(color = "white", face = "bold"))+
+  labs(x = "", y ="", fill = "Substrat")+
+  ggtitle(bquote("Grille de projection avec effet substrat à une résolution de " *.(res_km)* "km"))
+
+}
+
+```
+
+
+```{r echo=FALSE}
+
+# plot projection grid
+
+if (isTRUE(gear_factor_FE)) {               
+
+ggplot(grid_pred, aes(lon, lat, fill = gear)) + 
+  geom_raster() +
+  geom_sf(data=land, fill="grey80", inherit.aes = FALSE, color = NA) +
+  coord_sf(xlim = c(xmin_plot, xmax_plot), 
+           ylim = c(ymin_plot, ymax_plot), 
+           expand = FALSE) +
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = NA), 
+        panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
+        strip.background = element_rect(fill = "grey40", color = "white"),
+        strip.text = element_text(color = "white", face = "bold"))+
+  labs(x = "", y ="", fill = "Engin")+
+  ggtitle(bquote("Grille de projection avec effet engin à une résolution de " *.(res_km)* "km"))
+
+}
+
+```
+
+
+# 5. Prédictions
+
+## Effets fixes + aléatoires spatiaux + aléatoires spatio-temporels
+
+```{r echo=FALSE}
+
+if (response == "presence_absence") {               
+
+ggplot(pred_fit, aes(lon, lat, fill = est)) + 
+  geom_raster() +
+  facet_wrap(~year) +
+  geom_sf(data=land, fill="grey80", inherit.aes = FALSE, color = "grey80") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 3))+
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 4))+
+  scale_fill_viridis_c(option = "magma", 
+                       labels = scales::label_number(drop0trailing = TRUE))+
+  coord_sf(xlim = c(xmin_plot, xmax_plot), 
+           ylim = c(ymin_plot, ymax_plot), 
+           expand = FALSE) +
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = NA), 
+        panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
+        strip.background = element_rect(fill = "grey40", color = "white"),
+        strip.text = element_text(color = "white", face = "bold"))+
+        ggtitle(bquote("Distribution spatiale de " * italic(.(sp_scientific)) * ""))+
+  labs(x = "", y ="", 
+       subtitle = "Effets fixes + aléatoires spatiaux + aléatoires spatio-temporels")
+
+}
+
+if (response == "densityKgKm2" && distribution_family == "tweedie") {               
 
 ggplot(pred_fit, aes(lon, lat, fill = est)) + 
   geom_raster() +
@@ -425,9 +580,9 @@ ggplot(pred_fit, aes(lon, lat, fill = est)) +
 
 }
 
-if (grepl("presence", model_version)) {               
+if (response == "densityKgKm2" && distribution_family != "tweedie") {               
 
-ggplot(pred_fit, aes(lon, lat, fill = est)) + 
+ggplot(pred_fit, aes(lon, lat, fill = est1)) + 
   geom_raster() +
   facet_wrap(~year) +
   geom_sf(data=land, fill="grey80", inherit.aes = FALSE, color = "grey80") +
@@ -435,7 +590,7 @@ ggplot(pred_fit, aes(lon, lat, fill = est)) +
   scale_x_continuous(breaks = scales::pretty_breaks(n = 4))+
   scale_fill_viridis_c(option = "magma", 
                        labels = scales::label_number(drop0trailing = TRUE))+
-  coord_sf(xlim = c(xmin_plot, xmax_plot), 
+    coord_sf(xlim = c(xmin_plot, xmax_plot), 
            ylim = c(ymin_plot, ymax_plot), 
            expand = FALSE) +
   theme(panel.grid = element_blank(),
@@ -443,7 +598,36 @@ ggplot(pred_fit, aes(lon, lat, fill = est)) +
         panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
         strip.background = element_rect(fill = "grey40", color = "white"),
         strip.text = element_text(color = "white", face = "bold"))+
-        ggtitle(bquote("Distribution spatiale de " * italic(.(sp_scientific)) * ""))+
+        ggtitle(bquote("Distribution spatiale de la densité de biomasse de " * 
+                         italic(.(sp_scientific)) * ""))+
+  labs(x = "", y ="", 
+       subtitle = "Effets fixes + aléatoires spatiaux + aléatoires spatio-temporels")
+
+}
+```
+
+```{r echo=FALSE}
+
+if (response == "densityKgKm2" && distribution_family != "tweedie") {               
+
+ggplot(pred_fit, aes(lon, lat, fill = est2)) + 
+  geom_raster() +
+  facet_wrap(~year) +
+  geom_sf(data=land, fill="grey80", inherit.aes = FALSE, color = "grey80") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 3))+
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 4))+
+  scale_fill_viridis_c(option = "magma", 
+                       labels = scales::label_number(drop0trailing = TRUE))+
+    coord_sf(xlim = c(xmin_plot, xmax_plot), 
+           ylim = c(ymin_plot, ymax_plot), 
+           expand = FALSE) +
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = NA), 
+        panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
+        strip.background = element_rect(fill = "grey40", color = "white"),
+        strip.text = element_text(color = "white", face = "bold"))+
+        ggtitle(bquote("Distribution spatiale de la densité de biomasse de " * 
+                         italic(.(sp_scientific)) * ""))+
   labs(x = "", y ="", 
        subtitle = "Effets fixes + aléatoires spatiaux + aléatoires spatio-temporels")
 
@@ -452,11 +636,12 @@ ggplot(pred_fit, aes(lon, lat, fill = est)) +
 ```
 
 <br/>
- 
-```{r}
 
-if (grepl("density", model_version) && grepl("depth", model_version)) {
-  
+## Effets fixes uniquement
+
+```{r echo=FALSE}
+
+if (response == "presence_absence") {
   ggplot(pred_fit, aes(lon, lat, fill = est_non_rf)) + 
   geom_raster() +
   facet_wrap(~year)+
@@ -474,54 +659,11 @@ if (grepl("density", model_version) && grepl("depth", model_version)) {
         strip.background = element_rect(fill = "grey40", color = "white"),
         strip.text = element_text(color = "white", face = "bold"))+
   labs(x = "", y ="", 
-       title = "Effets fixes uniquement (profondeur et année)")
-  
-}
-
-if (grepl("density", model_version) && !grepl("depth", model_version)) {
-  ggplot(pred_fit, aes(lon, lat, fill = est_non_rf)) + 
-  geom_raster() +
-  facet_wrap(~year)+
-  geom_sf(data=land, fill="grey80", inherit.aes = FALSE, color = "grey80") +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 3))+
-  scale_x_continuous(breaks = scales::pretty_breaks(n = 4))+
-  scale_fill_viridis_c(option = "magma", 
-                       labels = scales::label_number(drop0trailing = TRUE))+
-  coord_sf(xlim = c(xmin_plot, xmax_plot), 
-           ylim = c(ymin_plot, ymax_plot), 
-           expand = FALSE) +
-  theme(panel.grid = element_blank(),
-        panel.background = element_rect(fill = "white", colour = NA), 
-        panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
-        strip.background = element_rect(fill = "grey40", color = "white"),
-        strip.text = element_text(color = "white", face = "bold"))+
-  labs(x = "", y ="", 
-       title = "Effets fixes uniquement (année)")
-}
-
-if (grepl("presence", model_version) && grepl("depth", model_version)) {
-  ggplot(pred_fit, aes(lon, lat, fill = est_non_rf)) + 
-  geom_raster() +
-  facet_wrap(~year)+
-  geom_sf(data=land, fill="grey80", inherit.aes = FALSE, color = "grey80") +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 3))+
-  scale_x_continuous(breaks = scales::pretty_breaks(n = 4))+
-  scale_fill_viridis_c(option = "magma", 
-                       labels = scales::label_number(drop0trailing = TRUE))+
-  coord_sf(xlim = c(xmin_plot, xmax_plot), 
-           ylim = c(ymin_plot, ymax_plot), 
-           expand = FALSE) +
-  theme(panel.grid = element_blank(),
-        panel.background = element_rect(fill = "white", colour = NA), 
-        panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
-        strip.background = element_rect(fill = "grey40", color = "white"),
-        strip.text = element_text(color = "white", face = "bold"))+
-  labs(x = "", y ="", 
-       title = "Effets fixes uniquement (profondeur et année)")
+       title = "Effets fixes uniquement")
   
 }
 
-if (grepl("presence", model_version) && !grepl("depth", model_version)) {
+if (response == "densityKgKm2" && distribution_family == "tweedie") {               
   ggplot(pred_fit, aes(lon, lat, fill = est_non_rf)) + 
   geom_raster() +
   facet_wrap(~year)+
@@ -539,20 +681,66 @@ if (grepl("presence", model_version) && !grepl("depth", model_version)) {
         strip.background = element_rect(fill = "grey40", color = "white"),
         strip.text = element_text(color = "white", face = "bold"))+
   labs(x = "", y ="", 
-       title = "Effets fixes uniquement (année)")
+       title = "Effets fixes uniquement")
 }
+
+if (response == "densityKgKm2" && distribution_family != "tweedie") {               
+  ggplot(pred_fit, aes(lon, lat, fill = est_non_rf1)) + 
+  geom_raster() +
+  facet_wrap(~year)+
+  geom_sf(data=land, fill="grey80", inherit.aes = FALSE, color = "grey80") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 3))+
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 4))+
+  scale_fill_viridis_c(option = "magma", 
+                       labels = scales::label_number(drop0trailing = TRUE))+
+  coord_sf(xlim = c(xmin_plot, xmax_plot), 
+           ylim = c(ymin_plot, ymax_plot), 
+           expand = FALSE) +
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = NA), 
+        panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
+        strip.background = element_rect(fill = "grey40", color = "white"),
+        strip.text = element_text(color = "white", face = "bold"))+
+  labs(x = "", y ="", 
+       title = "Effets fixes uniquement")
+}
+
 ```
+```{r echo=FALSE}
 
+if (response == "densityKgKm2" && distribution_family != "tweedie") {               
+  ggplot(pred_fit, aes(lon, lat, fill = est_non_rf2)) + 
+  geom_raster() +
+  facet_wrap(~year)+
+  geom_sf(data=land, fill="grey80", inherit.aes = FALSE, color = "grey80") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 3))+
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 4))+
+  scale_fill_viridis_c(option = "magma", 
+                       labels = scales::label_number(drop0trailing = TRUE))+
+  coord_sf(xlim = c(xmin_plot, xmax_plot), 
+           ylim = c(ymin_plot, ymax_plot), 
+           expand = FALSE) +
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = NA), 
+        panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
+        strip.background = element_rect(fill = "grey40", color = "white"),
+        strip.text = element_text(color = "white", face = "bold"))+
+  labs(x = "", y ="", 
+       title = "Effets fixes uniquement")
+}
+
+```
 <br/>
 
-Densité de l'espèce expliquée par les covariables mesurées (profondeur, année)  
 Effets fixes uniquement : utiliser pour comprendre le signal porté par les covariables  
-Prédiction issue uniquement des covariables mesurées
+Prédiction issue uniquement des covariables incluses dans le modèle
 
 <br/>
 <br/>
 
-```{r}
+```{r echo=FALSE}
+
+if (response == "presence_absence" || distribution_family == "tweedie") {               
 
 ggplot(pred_fit, aes(lon, lat, fill = omega_s)) + 
   geom_raster() +
@@ -570,6 +758,51 @@ ggplot(pred_fit, aes(lon, lat, fill = omega_s)) +
         strip.text = element_text(color = "white", face = "bold"))+
   labs(x = "", y ="", 
        title = "Effects aléatoires spatiaux seulement")
+}
+
+if (response == "densityKgKm2" && distribution_family != "tweedie") {               
+
+ggplot(pred_fit, aes(lon, lat, fill = omega_s1)) + 
+  geom_raster() +
+  geom_sf(data=land, fill="grey80", inherit.aes = FALSE, color = "grey80") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 3))+
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 4))+
+  scale_fill_gradient2(labels = scales::label_number(drop0trailing = TRUE))+
+  coord_sf(xlim = c(xmin_plot, xmax_plot), 
+           ylim = c(ymin_plot, ymax_plot), 
+           expand = FALSE) +
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = NA), 
+        panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
+        strip.background = element_rect(fill = "grey40", color = "white"),
+        strip.text = element_text(color = "white", face = "bold"))+
+  labs(x = "", y ="", 
+       title = "Effects aléatoires spatiaux seulement")
+}
+
+```
+
+```{r echo=FALSE}
+
+if (response == "densityKgKm2" && distribution_family != "tweedie") {               
+
+ggplot(pred_fit, aes(lon, lat, fill = omega_s2)) + 
+  geom_raster() +
+  geom_sf(data=land, fill="grey80", inherit.aes = FALSE, color = "grey80") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 3))+
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 4))+
+  scale_fill_gradient2(labels = scales::label_number(drop0trailing = TRUE))+
+  coord_sf(xlim = c(xmin_plot, xmax_plot), 
+           ylim = c(ymin_plot, ymax_plot), 
+           expand = FALSE) +
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = NA), 
+        panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
+        strip.background = element_rect(fill = "grey40", color = "white"),
+        strip.text = element_text(color = "white", face = "bold"))+
+  labs(x = "", y ="", 
+       title = "Effects aléatoires spatiaux seulement")
+}
 
 ```
 
@@ -592,7 +825,9 @@ omega_s > 0 : densité plus élevée que ce que les covariables prédisent (habi
 <br/>
 <br/>
 
-```{r}
+```{r echo=FALSE}
+
+if (response == "presence_absence" || distribution_family == "tweedie") {               
 
 ggplot(pred_fit, aes(lon, lat, fill = epsilon_st)) + 
   geom_raster() +
@@ -612,6 +847,55 @@ ggplot(pred_fit, aes(lon, lat, fill = epsilon_st)) +
   labs(x = "", y ="", 
        title = "Effects aléatoires spatio-temporels")
 
+}
+
+if (response == "densityKgKm2" && distribution_family != "tweedie") {               
+
+  ggplot(pred_fit, aes(lon, lat, fill = epsilon_st1)) + 
+  geom_raster() +
+  facet_wrap(~year) +
+  geom_sf(data=land, fill="grey80", inherit.aes = FALSE, color = "grey80") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 3))+
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 4))+
+  scale_fill_gradient2(labels = scales::label_number(drop0trailing = TRUE))+
+  coord_sf(xlim = c(xmin_plot, xmax_plot), 
+           ylim = c(ymin_plot, ymax_plot), 
+           expand = FALSE) +
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = NA), 
+        panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
+        strip.background = element_rect(fill = "grey40", color = "white"),
+        strip.text = element_text(color = "white", face = "bold"))+
+  labs(x = "", y ="", 
+       title = "Effects aléatoires spatio-temporels")
+
+}
+
+```
+
+```{r echo=FALSE}
+
+if (response == "densityKgKm2" && distribution_family != "tweedie") {               
+
+  ggplot(pred_fit, aes(lon, lat, fill = epsilon_st2)) + 
+  geom_raster() +
+  facet_wrap(~year) +
+  geom_sf(data=land, fill="grey80", inherit.aes = FALSE, color = "grey80") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 3))+
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 4))+
+  scale_fill_gradient2(labels = scales::label_number(drop0trailing = TRUE))+
+  coord_sf(xlim = c(xmin_plot, xmax_plot), 
+           ylim = c(ymin_plot, ymax_plot), 
+           expand = FALSE) +
+  theme(panel.grid = element_blank(),
+        panel.background = element_rect(fill = "white", colour = NA), 
+        panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
+        strip.background = element_rect(fill = "grey40", color = "white"),
+        strip.text = element_text(color = "white", face = "bold"))+
+  labs(x = "", y ="", 
+       title = "Effects aléatoires spatio-temporels")
+
+}
 ```
 
 <br/>
@@ -630,28 +914,11 @@ epsilon_st > 0 : l’année est  favorable : hausse de densité à cet endroit
 <br/>
 <br/>
 
-```{r}
-
-if (grepl("depth", model_version) && !grepl("gear", model_version)) {    
-  
-  d <- visreg::visreg(model, xvar = "depth",  plot = FALSE)
-  
-  ggplot(d$fit, aes(x = depth, y = visregFit)) +
-    geom_line() +
-    geom_ribbon(aes(ymin = visregLwr, ymax = visregUpr), alpha = 0.5) +
-    labs(x="Profondeur (m)", y="Densité (log, kg/km²)", 
-         title = "Effet conditionnel de la profondeur sur la densité dans l’espace du lien (log)\n(en maintenant toutes les autres variables constantes)") +
-    theme_minimal() +
-    geom_point(aes(y = visregRes), data = d$res, size = 1, alpha = 0.4)
-
-}
-```
-
 
 
 ```{r}
 
-if (grepl("depth", model_version)) {    
+if (isTRUE(depth_FE) && !isTRUE(gear_factor_FE)) {    
   
   d <- visreg::visreg(model, xvar = "depth", scale = "response",  plot = FALSE)
   
@@ -670,7 +937,7 @@ if (grepl("depth", model_version)) {
 # 6. Série temporelle, indice
 ```{r}
 
-if (!grepl("presence", model_version)) {
+if (!response == "presence_absence" && isTRUE(year_factor_FE)) {
   
  pred_fit_index <- predict(model, newdata = grid_pred,
                           return_tmb_object = TRUE)
@@ -682,42 +949,22 @@ index <- get_index(pred_fit_index,
                    silent = TRUE)
 
 
-ggplot(index, aes(x = year, y = (est)/1000)) + 
+index$year_num <- as.numeric(as.character(index$year))  
+
+ggplot(index, aes(x = year_num, y = est/1000, group = 1)) +
   geom_line() +
-  geom_ribbon(aes(ymin = (lwr)/1000, ymax = (upr)/1000), alpha = 0.4) +
-  ylim(0, NA) +
-  scale_x_continuous(breaks = seq(2018,2024,1), minor_breaks = NULL)+
-  labs(x = "Year", y = "Biomasse (tonnes)", title = "Biomasse annuelle totale prédite sur toute la zone") +
+  geom_ribbon(aes(ymin = lwr/1000, ymax = upr/1000), alpha = 0.4) +
+  coord_cartesian(ylim = c(0, NA)) +
+  scale_x_continuous(breaks = 2018:2024) +
+  labs(x = "Year", y = "Biomasse (tonnes)",
+       title = "Biomasse annuelle totale prédite sur toute la zone") +
   theme_minimal()
+
 
 }
 
 ```
 
 
-```{r}
 
-if (!grepl("presence", model_version)) {
-  
- pred_fit_index <- predict(model, newdata = grid_pred,
-                          return_tmb_object = TRUE)
-
-index <- get_index(pred_fit_index, 
-                   bias_correct = TRUE, 
-                   level = 0.95, 
-                   area = (res_km*res_km), 
-                   silent = TRUE)
-
-index %>% #filter(year != 2020)%>%
-ggplot(aes(x = year, y = (est)/1000)) + 
-  geom_point() +
-  geom_errorbar(aes(ymin = (lwr)/1000, ymax = (upr)/1000), alpha = 0.4) +
-  ylim(0, NA) +
-  scale_x_continuous(breaks = seq(2018,2024,1), minor_breaks = NULL)+
-  labs(x = "Year", y = "Biomasse (tonnes)", title = "Biomasse annuelle totale prédite sur toute la zone") +
-  theme_minimal()
-
-}
-
-```
 
