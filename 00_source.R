@@ -48,25 +48,43 @@ source(here('03_TRANSFORM_DATA/transform_data.R'))
 # ------------------------------------------------------------------------------#
 
 # Cutoff defines the minimum allowed distance between mesh vertices 
-cutoff = 10
+cutoff = 16
 
 source(here('04_MODEL/functions/create_mesh.R'))
 
 
 # ------------------------------------------------------------------------------#
-####  RUN MODEL  #### 
+####  BUILD & RUN THE MODEL  #### 
 # ------------------------------------------------------------------------------#
 
-# Select the model version 
-# --------------------------#
+# ------------------------------#
+# Choose the response variable
+# ------------------------------#
+# response = "presence_absence"    # presence/absence (binomial, logit link by default)
+response = "densityKgKm2"        # biomass density (requires choosing a distribution family below)
 
-# model_version <- "m1_presence_year"
-# model_version <- "m2_density_year"
-# model_version <- "m3_presence_year_depth"
-model_version <- "m4_density_year_depth"
 
-source(here(paste0("04_MODEL/models_versions/models.R")))
+# -------------------------------#
+# Choose the distribution family (used only if Response = "densityKgKm2")
+# -------------------------------#
+distribution_family = "delta_gamma_poisson"
+# distribution_family = "tweedie"
+# distribution_family = "delta_gamma"
+# distribution_family = "delta_lognormal"
 
+
+# -----------------------------#
+# Select predictive covariates (TRUE / FALSE) 
+# -----------------------------#
+year_factor_FE = TRUE              # categorical fixed effect (0 + factor(year))
+depth_FE = TRUE                     # continuous depth effect
+gear_factor_FE = TRUE               # categorical substrate effect
+substrate_factor_FE = TRUE          # categorical gear effect
+
+source(here("04_MODEL/functions/build_run_model.R"))
+
+# Final formula for verification
+print(model_formula)
 
 # ------------------------------------------------------------------------------#
 ####  CHECK OUTPUTS  #### 
@@ -90,6 +108,15 @@ tidy(model, "ran_pars")
 # grid resolution in km
 res_km = 6
 
+# If the model includes a categorical substrate fixed effect (substrate_factor_FE = TRUE),
+# decide how to handle grid cells classified as "Rock and boulder" (no survey observations in these cells).
+# Options:
+# - "recode_to_neighbors" : reassign these cells to the dominant substrate of neighbouring cells (prediction kept).
+# - "exclude_from_grid" : remove these cells from the prediction grid (no spatial prediction for these areas).
+
+# substrate_rock_handling = "recode_to_neighbors"
+substrate_rock_handling = "exclude_from_grid"
+  
 source(here('04_MODEL/functions/design_grid.R'))
 
 
@@ -100,38 +127,11 @@ source(here('04_MODEL/functions/design_grid.R'))
 source(here("04_MODEL/functions/predict_on_grid.R"))
 
 
-# -------------------------------------------------------------------------------
-####  CREATE NEW REPERTORY FOR SAVING OUTPUTS ####  
-# -------------------------------------------------------------------------------
-
-new_repertory_model <- here(paste0("05_OUTPUTS/", study_domain,"/", common_name,"/", model_version,"/", 
-                                   format(Sys.time(), "%d-%b-%Y-%H.%M")))
-dir.create(new_repertory_model)
-
-
-rmarkdown::render(input = here("04_MODEL", "report", "report.Rmd"),
-                  output_dir = new_repertory_model, 
-                  output_file = paste0("report_", common_name, "_", model_version, ".html"))
-
-
-
 # ------------------------------------------------------------------------------#
-####  GET INDEX  (abundance, density) #### 
+####  CREATE NEW REPERTORY AND SAVE OUTPUTS ####  
 # ------------------------------------------------------------------------------#
 
-# DONE ALSO IN REPORT
-# pred_fit_index <- predict(model, newdata = grid_pred,
-#                           return_tmb_object = TRUE)
-# 
-# index <- get_index(pred_fit_index, 
-#                    bias_correct = TRUE, 
-#                    level = 0.95, 
-#                    area = (res_km*res_km),  # area of a projection grid cell
-#                    silent = TRUE)
-# 
-# 
-# ggplot(index, aes(x = factor(year), y = est)) +
-#   geom_point() +
-#   geom_errorbar(aes(ymin = lwr, ymax = upr), alpha = 0.2) +
-#   labs(x = "Year", y = "Density index", title = "Density index") +
-#   theme_minimal()
+# Create output directory (in folder 04_OUTPUTS) structured by domain, species, 
+# response, and predictors, then save model diagnostics, predictions, and HTML report
+source(here("04_MODEL/functions/save_results.R"))
+

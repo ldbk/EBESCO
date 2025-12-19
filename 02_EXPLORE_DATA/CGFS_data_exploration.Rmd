@@ -1200,3 +1200,99 @@ ggplot(aes(x = densityKgKm2, y = -depth)) +
 <br>
 <br>
 \vspace{2cm}
+
+# Substrate at CGFS stations
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+  # Load the substrate raster from a NetCDF file
+  substrate_EC <- raster(here("01_DATA", "substrate", "Substrate5levels_English_Channel.nc"))
+  
+  # Plot the cropped substrate
+  plot(substrate_EC, main = "Substrate of English Channel")
+  
+  # Convert the substrate raster from a 'RasterLayer' object (raster package)
+  # to a 'SpatRaster' object (terra package) so it can be used with terra functions
+  substrate_EC_spat <- rast(substrate_EC)
+  
+  # Convert the CGFS data frame to a spatial vector
+  pts_CGFS_substrate <- vect(data_CGFS_crs,
+                             geom = c("lon", "lat"),
+                             crs  = crs(substrate_EC_spat))
+  
+  # Extract depth values from the raster at point locations
+  # terra::extract() returns a data frame with ID + raster values
+  subtrate_df <- terra::extract(substrate_EC_spat, pts_CGFS_substrate)
+  
+  # Add depth values to the original data frame
+  # The second column of depth_df is the raster value (first is ID)
+  data_CGFS_crs$substrate <- subtrate_df[, 2]
+  
+  #remove CGFS points out of the English Channel shapefile (depth = NA)
+  CGFS_density_bathy <- data_CGFS_crs %>%
+    filter(!is.na(substrate))
+
+  # object to see substrate classes
+  # substrate_csv <- read_csv(here("01_DATA/substrate/Multiscale - folk 7.csv"))
+  # unique(substrate_csv$folk_5cl_txt)
+  
+data_CGFS_crs$substrate <- factor(data_CGFS_crs$substrate,
+  levels = c(1, 2, 3, 4, 5),
+  labels = c("1. Mud to muddy", 
+             "2.Sand",
+             "3. Coarse-grained sediment",
+             "4. Mixed sediment",
+             "5. Rock & boulders"))
+
+  
+basemap(data = EC_sf, land.col = "grey80", land.border = "grey80") +   
+  geom_sf(data = EC_sf, fill = NA, color= NA) +        
+  geom_spatial_point(data = data_CGFS_crs, 
+                     aes(x = lon, y = lat, color = substrate), alpha = 0.8) +
+  facet_wrap(~ year) +
+  theme(panel.grid = element_blank(),
+        panel.border = element_rect(color = "white", fill = NA, linewidth = 1),
+        strip.background = element_rect(fill = "grey40", color = "white"),
+        strip.text = element_text(color = "white", face = "bold"))+
+  labs(title = "Profondeur aux stations CGFS", x = "", y = "", color = "Nature du substrat") 
+
+```
+<br>
+<br>
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+data_CGFS_crs %>%
+  mutate(presence_absence = factor(presence_absence, 
+                                   levels = c(0, 1),  
+                                   labels = c("Absence", "Presence"))) %>%
+ggplot(aes(x = fct_infreq(substrate), fill = factor(presence_absence))) +
+  geom_bar(alpha = 0.6, color = "black", position = "dodge")+
+  labs(title = "Nombre de présence absence en fonction de la nature du substrat", 
+       x = "Nombre de présence absence", y = "Nature du substrat", fill = "Occurence") 
+
+
+```
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+data_CGFS_crs %>%
+ggplot(aes(x = substrate, y = densityKgKm2)) +
+  geom_boxplot(outliers = FALSE)+
+  labs(x = "Nature du substrat", y = "Densité (kg/km²)") +
+  ggtitle(bquote("Densité de " * italic(.(sp_scientific)) * " en fonction de la nature du substrat"))
+
+
+
+```
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+data_CGFS_crs %>%
+ggplot(aes(x = substrate, y = densityKgKm2)) +
+  geom_jitter()+
+  labs(title = "Nombre de présence absence en fonction de la nature du substrat", 
+       x = "Nature du substrat", y = "Densité (kg/km²)") 
+
+
+```
