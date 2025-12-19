@@ -14,104 +14,30 @@
 #   dplyr::select(year, X, Y) %>%
 #   group_by(year) %>%
 #   mutate(
-#     nearest_neighbor_dist_km = {                    
+#     nearest_neighbor_dist_km = {
 #       distance_matrix <- as.matrix(stats::dist(cbind(X, Y), method = "euclidean"))
-#       diag(distance_matrix) <- NA                     # remove self-distance 
+#       diag(distance_matrix) <- NA                     # remove self-distance
 #       apply(distance_matrix, 1, min, na.rm = TRUE)    # keep minimum distance for each row/point
 #     }
 #   ) %>%
 #   ungroup()
-
-# Mean of the shortest distances per year
-# mean_shortest_distance <- shortest_distance_matrix %>%
-#   group_by(year) %>%
-#   summarise(mean_nearest_neighbor_dist_km = mean(nearest_neighbor_dist_km),
-#             sd_nearest_neighbor_dist_km = sd(nearest_neighbor_dist_km),
-#             n_points = n())
-
-# check Nsamp vs n_points 
-# ckeck_Nsamp <- data_CGFS_crs %>%
-#   group_by(year) %>%
-#   summarise(Nsamp = length(unique(haulID)))
-
-# global_mean_dist <- mean_shortest_distance %>% summarise(mean_dist = mean(mean_nearest_neighbor_dist_km))
+# 
+# # Mean of the shortest distances 
+# summary(shortest_distance_matrix)
 
 
 
 # ------------------------------------------------------------------------------#
-#### 1. DESIGN GRID WITH BATHYMETRY RASTER #### 
+#### 1. DESIGN GRID WITHOUT RASTER (bathymetry, substrate) #### 
 # ------------------------------------------------------------------------------#
 
-if (grepl("depth", model_version)) {
-  
-  # grid resolution in km
-  # res_km = 13 --> SOURCE
-  
-  # horizontal and vertical aggregation factor
-  # https://stackoverflow.com/questions/1253499/simple-calculations-for-working-with-lat-lon-and-km-distance
-  fact_x <- res_km / (0.001041667 * 111.32 * cos(pi*50/180))     # 50 = latitude (lat * pi / 180)
-  fact_y <- res_km / (0.001041667 * 111.32)  
-  
-  # Aggregate a raster object to create a new one
-  # Aggregation groups rectangular areas to create larger cells
-  # https://www.rdocumentation.org/packages/raster/versions/3.6-32/topics/aggregate
-  
-  if (study_domain == "Entire_English_Channel"){
-    bathy <- raster(here("01_DATA/bathymetry/EC_Bathy/Bathy_English_Channel.nc"))
-  }
-  if (study_domain == "Eastern_English_Channel"){
-    bathy <- raster(here("01_DATA/bathymetry/EEC_Bathy/Bathy_Eastern_English_Channel.nc"))
-  }    
-  
-  # Aggregate the bathymetry raster using the specified horizontal/vertical aggregation factors and a mean function
-  bathy_res_km <- raster::aggregate(bathy,                        
-                                    fact = c(fact_x, fact_y),     
-                                    fun = mean)                   # fun = function used to aggregate values (example mean, modal, min or max)
-  
-  
-  # plot(bathy_res_km, main = "Bathymetry", col = terrain.colors(100))
-  
-  # Get a data.frame with raster cell values
-  # https://www.rdocumentation.org/packages/raster/versions/3.6-32/topics/as.data.frame 
-  grid <- as.data.frame(bathy_res_km, xy = TRUE) %>%   # xy If TRUE, also return the spatial coordinates
-    rename(lon  = x, lat  = y)%>%
-    filter(!is.na(depth))
-  
-  # Check dataframe
-  # ggplot(grid) +
-  #   geom_raster(aes(x = lon, y = lat, fill = depth))
-  
-  # Compute the prediction grid: extract lon/lat of valid cells and convert to UTM coordinates (km)
-  grid_pred <- add_utm_columns(grid, 
-                               ll_names = c("lon", "lat"), 
-                               ll_crs = 4326, 
-                               utm_names = c("X", "Y"),
-                               utm_crs = utm_crs_used,
-                               units = "km")
-  
-  # ggplot(grid_pred) +
-  #   geom_raster(aes(x = X, y = Y, fill = depth))
-  
-  # If the model includes a year effect, replicate values across years
-  if (grepl("year", model_version) && !grepl("gear", model_version)) {   
-    grid_pred <- replicate_df(grid_pred, "year", unique(data_CGFS_crs$year))
-  }
-  
-}
-
-
-
-# ------------------------------------------------------------------------------#
-#### 2. DESIGN GRID WITHOUT COVARIABLE #### 
-# ------------------------------------------------------------------------------#
-
-if (!grepl("depth", model_version)) {              
+if (!isTRUE(depth_FE) && !isTRUE(substrate_factor_FE)) {
   
   # Use the shapefile of the English Channel (EC) to define the grid extent
   if (study_domain == "Entire_English_Channel"){
     EC_shp <- vect(here("01_DATA", "shapefiles", "English_Channel", "English_Channel.shp"))
-  }
-  if (study_domain == "Eastern_English_Channel"){
+  } 
+  else if (study_domain == "Eastern_English_Channel"){
     EC_shp <- vect(here("01_DATA", "shapefiles", "Eastern_English_Channel", "Eastern_English_Channel.shp"))
   }    
   
@@ -151,14 +77,331 @@ if (!grepl("depth", model_version)) {
                                utm_crs = utm_crs_used,
                                units = "km")
   
-  # If the model includes a year effect, replicate values across years
-  if (grepl("year", model_version)) {  
-    grid_pred <- replicate_df(grid_pred, "year", unique(data_CGFS_crs$year))
+  #  replicate values across years
+  grid_pred <- replicate_df(grid_pred, "year", factor(unique(data_CGFS_crs$year)))
+  
+  # If the model includes a gear effect 
+  # Add a gear category based on longitude: GOV 36/47 East if lon < -1.43, GOV 36/49 West if lon >= -1.43
+  if (isTRUE(gear_factor_FE)) {  
+    grid_pred <- grid_pred %>%
+      mutate(gear = if_else(lon < -1.43, "GOV 36/47", "GOV 36/49"),
+             gear = factor(gear, levels = c("GOV 36/47", "GOV 36/49")))
   }
   
 }
 
 
+
+subset(data_test_model, presence_absence == 0)
+
+
+# ------------------------------------------------------------------------------#
+#### 2. DESIGN GRID WITH RASTER (bathymetry, substrate) #### 
+# ------------------------------------------------------------------------------#
+
+if (isTRUE(depth_FE) || isTRUE(substrate_factor_FE)) {
+  
+  
+  # horizontal and vertical aggregation factor
+  fact_x <- res_km / (0.001041667 * 111.32 * cos(pi*50/180))     # 50 = latitude (lat * pi / 180)
+  fact_y <- res_km / (0.001041667 * 111.32)  
+  
+  # Aggregate a raster object to create a new one
+  # Aggregation groups rectangular areas to create larger cells
+
+  if (study_domain == "Entire_English_Channel"){
+    EC_shp <- vect(here("01_DATA", "shapefiles", "English_Channel", "English_Channel.shp"))
+    if (isTRUE(depth_FE)) bathy <- raster(here("01_DATA/bathymetry/EC_Bathy/Bathy_English_Channel.nc"))
+    if (isTRUE(substrate_factor_FE)) substrate <- raster(here("01_DATA/substrate/Substrate5levels_English_Channel.nc"))
+  
+    } else if (study_domain == "Eastern_English_Channel"){
+    EC_shp <- vect(here("01_DATA", "shapefiles", "Eastern_English_Channel", "Eastern_English_Channel.shp"))
+    if (isTRUE(depth_FE)) bathy <- raster(here("01_DATA/bathymetry/EEC_Bathy/Bathy_Eastern_English_Channel.nc"))
+  }    
+  
+  
+  if (isTRUE(depth_FE)){
+  # Aggregate the bathymetry raster using the specified horizontal/vertical aggregation factors and a mean function
+  bathy_res_km <- raster::aggregate(bathy,                        
+                                    fact = c(fact_x, fact_y),     
+                                    fun = mean)                   # fun = function used to aggregate values (example mean, modal, min or max)
+  
+  # plot(bathy_res_km, main = "Bathymetry", col = terrain.colors(100))
+  
+  # Get a data.frame with raster cell values
+  grid_depth <- as.data.frame(bathy_res_km, xy = TRUE) %>%   # xy If TRUE, also return the spatial coordinates
+    rename(lon  = x, lat  = y)%>%
+    filter(!is.na(depth))
+  
+  }
+  
+  if (isTRUE(substrate_factor_FE)){
+    # Aggregate the substrate raster using the specified horizontal/vertical aggregation factors and a modal function
+    substrate_res_km <- raster::aggregate(substrate, 
+                                          fact = c(fact_x, fact_y), 
+                                          fun  = modal)
+    
+    # plot(substrate_res_km, main = "Substrate")
+    
+    # Get a data.frame with raster cell values
+    grid_substrate_before <- as.data.frame(substrate_res_km, xy = TRUE) %>%   # xy If TRUE, also return the spatial coordinates
+      rename(lon  = x, lat  = y, substrate = Substrate5levels_English_Channel) %>%
+      mutate(substrate = factor(substrate)) %>%
+      filter(!is.na(substrate))
+    
+    if (substrate_rock_handling == "recode_to_neighbors") {
+      source(here("04_MODEL/functions/impute_substrate5_focal_iter.R"))
+      grid_substrate_after <- impute_substrate5_focal_iter(grid_substrate_before)
+    
+      } else if(substrate_rock_handling == "exclude_from_grid"){
+      grid_substrate_after <- grid_substrate_before %>%
+        filter(substrate != 5)
+    }
+  }
+
+  
+  # grid_substrate_after <- impute_substrate5_focal_iter(
+  #   grid_substrate_before,
+  #   k_neighbors = 8,
+  #   min_valid_neighbors = 4,
+  #   max_iter = 100
+  # )
+  # substrate_palette <- c("1" = "#CC99CC",
+  #                        "2" = "#fdb462",
+  #                        "3" = "#7fc97f",
+  #                        "4" = "#80b1d3",
+  #                        "5" = "#fb8072")
+  # 
+  # plot_before <- ggplot(grid_substrate_before, aes(lon, lat, fill = factor(substrate))) +
+  #   geom_tile() +
+  #   coord_equal() +
+  #   scale_fill_manual(values = substrate_palette) +
+  #   labs(title = "Avant", x="", y="", fill = "Substrat")
+  # 
+  # plot_after <- ggplot(grid_substrate_after, aes(lon, lat, fill = factor(substrate))) +
+  #   geom_tile() +
+  #   coord_equal() +
+  #   scale_fill_manual(values = substrate_palette) +
+  #   labs(title = "Après", x="", y="", fill = "Substrat")
+  # 
+  # ggpubr::ggarrange(plot_before,
+  #                   plot_after,
+  #                   ncol = 1)
+  
+  if (isTRUE(depth_FE) && isTRUE(substrate_factor_FE)) { 
+    global_grid <- merge(grid_substrate_after, grid_depth, by = c("lon", "lat"))                    
+  
+    } else if (isTRUE(depth_FE) && !isTRUE(substrate_factor_FE)) {
+      global_grid = grid_depth         
+    } else if (!isTRUE(depth_FE) && isTRUE(substrate_factor_FE)) {
+      global_grid = grid_substrate_after
+    }
+  
+  # Compute the prediction grid: extract lon/lat of valid cells and convert to UTM coordinates (km)
+  grid_pred <- add_utm_columns(global_grid, 
+                               ll_names = c("lon", "lat"), 
+                               ll_crs = 4326, 
+                               utm_names = c("X", "Y"),
+                               utm_crs = utm_crs_used,
+                               units = "km")
+  
+  #  replicate values across years
+  grid_pred <- replicate_df(grid_pred, "year", factor(unique(data_CGFS_crs$year)))
+  
+  # If the model includes a gear effect 
+  # Add a gear category based on longitude: GOV 36/47 East if lon < -1.43, GOV 36/49 West if lon >= -1.43
+  if (isTRUE(gear_factor_FE)) {  
+    grid_pred <- grid_pred %>%
+      mutate(gear = if_else(lon < -1.43, "GOV 36/47", "GOV 36/49"),
+             gear = factor(gear, levels = c("GOV 36/47", "GOV 36/49")))
+  }
+  
+}
+
+
+ 
+# # ------------------------------------------------------------------------------#
+# #### 2. DESIGN GRID WITH BATHYMETRY RASTER #### 
+# # ------------------------------------------------------------------------------#
+# 
+# if (isTRUE(depth_FE) && !isTRUE(substrate_factor_FE)) {
+#   
+#   # grid resolution in km
+#   # res_km = 13 --> SOURCE
+#   
+#   # horizontal and vertical aggregation factor
+#   # https://stackoverflow.com/questions/1253499/simple-calculations-for-working-with-lat-lon-and-km-distance
+#   fact_x <- res_km / (0.001041667 * 111.32 * cos(pi*50/180))     # 50 = latitude (lat * pi / 180)
+#   fact_y <- res_km / (0.001041667 * 111.32)  
+#   
+#   # Aggregate a raster object to create a new one
+#   # Aggregation groups rectangular areas to create larger cells
+#   # https://www.rdocumentation.org/packages/raster/versions/3.6-32/topics/aggregate
+#   
+#   if (study_domain == "Entire_English_Channel"){
+#     bathy <- raster(here("01_DATA/bathymetry/EC_Bathy/Bathy_English_Channel.nc"))
+#   }
+#   else if (study_domain == "Eastern_English_Channel"){
+#     bathy <- raster(here("01_DATA/bathymetry/EEC_Bathy/Bathy_Eastern_English_Channel.nc"))
+#   }    
+#   
+#   # Aggregate the bathymetry raster using the specified horizontal/vertical aggregation factors and a mean function
+#   bathy_res_km <- raster::aggregate(bathy,                        
+#                                     fact = c(fact_x, fact_y),     
+#                                     fun = mean)                   # fun = function used to aggregate values (example mean, modal, min or max)
+#   
+#   
+#   # plot(bathy_res_km, main = "Bathymetry", col = terrain.colors(100))
+#   
+#   # Get a data.frame with raster cell values
+#   grid <- as.data.frame(bathy_res_km, xy = TRUE) %>%   # xy If TRUE, also return the spatial coordinates
+#     rename(lon  = x, lat  = y)%>%
+#     filter(!is.na(depth))
+#   
+#   # Compute the prediction grid: extract lon/lat of valid cells and convert to UTM coordinates (km)
+#   grid_pred <- add_utm_columns(grid, 
+#                                ll_names = c("lon", "lat"), 
+#                                ll_crs = 4326, 
+#                                utm_names = c("X", "Y"),
+#                                utm_crs = utm_crs_used,
+#                                units = "km")
+#   
+#   # If the model includes a year effect, replicate values across years
+#   if (isTRUE(year_factor_FE)) {   
+#     grid_pred <- replicate_df(grid_pred, "year", unique(data_CGFS_crs$year))
+#   }
+#   
+#   # If the model includes a gear effect 
+#   # Add a gear category based on longitude: GOV 36/47 East if lon < -1.43, GOV 36/49 West if lon >= -1.43
+#   if (isTRUE(gear_factor_FE)) {  
+#     grid_pred <- grid_pred %>%
+#       mutate(gear = if_else(lon < -1.43, "GOV 36/47", "GOV 36/49"),
+#              gear = factor(gear, levels = c("GOV 36/47", "GOV 36/49")))
+#   }
+#   
+# }
+# 
+# 
+# 
+# # ------------------------------------------------------------------------------#
+# #### 3. DESIGN GRID WITH BATHYMETRY && SUBSTRATE RASTERS #### 
+# # ------------------------------------------------------------------------------#
+# 
+# if (isTRUE(depth_FE) && isTRUE(substrate_factor_FE)) {
+#   
+#   # grid resolution in km
+#   # res_km = 13 --> SOURCE
+#   
+#   # horizontal and vertical aggregation factor
+#   # https://stackoverflow.com/questions/1253499/simple-calculations-for-working-with-lat-lon-and-km-distance
+#   fact_x <- res_km / (0.001041667 * 111.32 * cos(pi*50/180))     # 50 = latitude (lat * pi / 180)
+#   fact_y <- res_km / (0.001041667 * 111.32)  
+#   
+#   # Aggregate a raster object to create a new one
+#   # Aggregation groups rectangular areas to create larger cells
+#   # https://www.rdocumentation.org/packages/raster/versions/3.6-32/topics/aggregate
+#   
+#   if (study_domain == "Entire_English_Channel"){
+#     bathy <- raster(here("01_DATA/bathymetry/EC_Bathy/Bathy_English_Channel.nc"))
+#     substrate <- raster(here("01_DATA/substrate/Substrate5levels_English_Channel.nc"))
+#   }
+#   if (study_domain == "Eastern_English_Channel"){
+#     bathy <- raster(here("01_DATA/bathymetry/EEC_Bathy/Bathy_Eastern_English_Channel.nc"))
+#   }    
+#   
+#   # Aggregate the bathymetry raster using the specified horizontal/vertical aggregation factors and a mean function
+#   bathy_res_km <- raster::aggregate(bathy,                        
+#                                     fact = c(fact_x, fact_y),     
+#                                     fun = mean)                   # fun = function used to aggregate values (example mean, modal, min or max)
+#   
+#   # plot(bathy_res_km, main = "Bathymetry", col = terrain.colors(100))
+#   
+#   
+#   # Get a data.frame with raster cell values
+#   grid_depth <- as.data.frame(bathy_res_km, xy = TRUE) %>%   # xy If TRUE, also return the spatial coordinates
+#     rename(lon  = x, lat  = y)%>%
+#     filter(!is.na(depth))
+#   
+#   
+#   # Aggregate the substrate raster using the specified horizontal/vertical aggregation factors and a modal function
+#   substrate_res_km <- raster::aggregate(substrate, 
+#                                         fact = c(fact_x, fact_y), 
+#                                         fun  = modal)
+#   
+#   # plot(substrate_res_km, main = "Substrate")
+#   
+#   # Get a data.frame with raster cell values
+#   # grid_substrate_before <- as.data.frame(substrate_res_km, xy = TRUE) %>%   # xy If TRUE, also return the spatial coordinates
+#   #   rename(lon  = x, lat  = y, substrate = Substrate5levels_English_Channel)%>%
+#   #   filter(!is.na(substrate))
+#   
+#   grid_substrate <- as.data.frame(substrate_res_km, xy = TRUE) %>%   # xy If TRUE, also return the spatial coordinates
+#     rename(lon  = x, lat  = y, substrate = Substrate5levels_English_Channel)%>%
+#     filter(!is.na(substrate))
+#   
+#   # source(here("04_MODEL/functions/impute_substrate5_focal_iter.R"))
+#   
+#   # grid_substrate <- impute_substrate5_focal_iter(grid_substrate_before)
+#   
+#   # grid_substrate_after <- impute_substrate5_focal_iter(
+#   #   grid_substrate_before,
+#   #   k_neighbors = 8,
+#   #   min_valid_neighbors = 4,
+#   #   max_iter = 100
+#   # )
+#   # substrate_palette <- c("1" = "#CC99CC",
+#   #                        "2" = "#fdb462",
+#   #                        "3" = "#7fc97f",
+#   #                        "4" = "#80b1d3",
+#   #                        "5" = "#fb8072")
+#   # 
+#   # plot_before <- ggplot(grid_substrate_before, aes(lon, lat, fill = factor(substrate))) +
+#   #   geom_tile() +
+#   #   coord_equal() +
+#   #   scale_fill_manual(values = substrate_palette) +
+#   #   labs(title = "Avant", x="", y="", fill = "Substrat")
+#   # 
+#   # plot_after <- ggplot(grid_substrate_after, aes(lon, lat, fill = factor(substrate))) +
+#   #   geom_tile() +
+#   #   coord_equal() +
+#   #   scale_fill_manual(values = substrate_palette) +
+#   #   labs(title = "Après", x="", y="", fill = "Substrat")
+#   # 
+#   # ggpubr::ggarrange(plot_before,
+#   #                   plot_after,
+#   #                   ncol = 1)
+# 
+#   
+#   
+#   # Merge bathymetry and substrate grids
+#   global_grid <- merge(grid_substrate, grid_depth, by = c("lon", "lat"))
+#   
+#   # Compute the prediction grid: extract lon/lat of valid cells and convert to UTM coordinates (km)
+#   grid_pred <- add_utm_columns(global_grid, 
+#                                ll_names = c("lon", "lat"), 
+#                                ll_crs = 4326, 
+#                                utm_names = c("X", "Y"),
+#                                utm_crs = utm_crs_used,
+#                                units = "km")
+#   
+#   # If the model includes a year effect, replicate values across years
+#   if (isTRUE(year_factor_FE)) {   
+#     grid_pred <- replicate_df(grid_pred, "year", unique(data_CGFS_crs$year))
+#   }
+#   
+#   # If the model includes a gear effect
+#   # western CGFS data longitude range : –5.88° to –1.53° 
+#   # eastern CGFS data longitude range : –1.32° to +1.65°
+#   # midpoint : –1.43°
+#   # Add a gear category based on longitude: GOV 36/47 East, GOV 36/49 West 
+#   if (isTRUE(gear_factor_FE)) {  
+#     grid_pred <- grid_pred %>%
+#       mutate(gear = if_else(lon < -1.43, "GOV 36/47", "GOV 36/49"),
+#              gear = factor(gear, levels = c("GOV 36/47", "GOV 36/49")))
+#   }
+#   
+#   
+# }
 
 
 
