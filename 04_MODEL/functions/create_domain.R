@@ -134,3 +134,91 @@ names(bathy_EC_depth) <- "depth"
 #          varname = "depth", unit = "m", overwrite=TRUE)
 
 
+
+# ------------------------------------------------------------------------------#
+#### ENTIRE ENGLISH CHANNEL SUBSTRATE (7 levels) #### 
+# ------------------------------------------------------------------------------#
+
+
+# Load substrate data from CSV file
+substrate_csv <- read_csv("01_DATA/substrate/Multiscale - folk 7.csv")
+
+# Convert CSV table to an sf object (geometry stored in WKT format)
+substrate_sf_7levels <- st_as_sf(substrate_csv, wkt = "geom", crs = 4326) %>%
+  dplyr::select(folk_7cl) 
+
+# Convert sf object to spatial vector
+substrate_vect_7levels <- vect(substrate_sf_7levels)
+# plot(substrate_vect_7levels)
+
+# Load English Channel boundary as a SpatVector
+EC <- vect(here("01_DATA", "shapefiles", "English_Channel", "English_Channel.shp"))
+
+# Reproject shapefile to match raster CRS 
+EC_shapefile  <- project(EC, substrate_vect_7levels)
+
+# Crop substrate polygons to the English Channel extent
+substrate_EC_crop_7levels <- crop(substrate_vect_7levels, EC_shapefile)
+
+# Mask substrate polygons so only areas inside the English Channel remain
+substrate_EC_7levels <- mask(substrate_EC_crop_7levels, EC_shapefile)
+
+
+# plot(substrate_EC_7levels, "folk_7cl", 
+#      main = "Substrats - Folk 7 classes")
+
+# Produce a substrate raster with the same extent, resolution, and CRS as the bathymetry
+substrate_raster_7levels <- rasterize(substrate_EC_7levels, 
+                                      bathy_EC_depth, 
+                                      field = "folk_7cl")
+
+# save
+# writeCDF(substrate_raster_7levels,
+#          filename = here("01_DATA/substrate/Substrate7levels_English_Channel.nc"),
+#          overwrite=TRUE)
+
+
+# ------------------------------------------------------------------------------#
+#### ENTIRE ENGLISH CHANNEL SUBSTRATE (5 levels) #### 
+# ------------------------------------------------------------------------------#
+
+
+# Load substrate data from CSV file
+substrate_csv <- read_csv(here("01_DATA/substrate/Multiscale - folk 7.csv"))
+
+# Convert CSV table to an sf object (geometry stored in WKT format)
+substrate_sf_5levels <- st_as_sf(substrate_csv, wkt = "geom", crs = 4326) %>%
+  dplyr::select(folk_5cl) 
+
+# Convert sf object to spatial vector
+substrate_vect_5levels <- vect(substrate_sf_5levels)
+# plot(substrate_vect_5levels)
+
+# Load English Channel boundary as a SpatVector
+EC <- vect(here("01_DATA", "shapefiles", "English_Channel", "English_Channel.shp"))
+
+# Reproject shapefile to match raster CRS 
+EC_shapefile  <- project(EC, bathy_emod)
+
+# Crop substrate polygons to the English Channel extent
+substrate_EC_crop_5levels <- crop(substrate_vect_5levels, EC_shapefile)
+
+# Mask substrate polygons so only areas inside the English Channel remain
+substrate_EC_5levels <- mask(substrate_EC_crop_5levels, EC_shapefile)
+
+
+# plot(substrate_EC_5levels, "folk_5cl", 
+#      main = "Substrats - Folk 5 classes")
+
+# Produce a substrate raster with the same extent, resolution, and CRS as the bathymetry
+substrate_raster_5levels <- rasterize(substrate_EC_5levels, 
+                                      bathy_EC_depth, 
+                                      field = "folk_5cl")
+
+# save
+# writeCDF(substrate_raster_5levels,
+#          filename = here("01_DATA/substrate/Substrate5levels_English_Channel.nc"),
+#          overwrite=TRUE)
+
+
+
