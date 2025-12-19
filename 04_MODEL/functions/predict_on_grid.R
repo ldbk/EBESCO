@@ -24,8 +24,7 @@ land <- ne_download(scale = "large", type = "land", category = "physical", retur
   st_transform(4326) %>%
   st_crop(xmin = xmin_plot, ymin = ymin_plot, xmax = xmax_plot, ymax = ymax_plot)
 
-
-# if (grepl("density", model_version)) {               
+# if (response == "densityKgKm2") {               
 #   
 #   ggplot(pred_fit, aes(lon, lat, fill = exp(est))) + 
 #     geom_raster() +
@@ -50,7 +49,7 @@ land <- ne_download(scale = "large", type = "land", category = "physical", retur
 #   
 # }
 # 
-# if (grepl("presence", model_version)) {               
+# if (response == "presence_absence") {               
 #   
 #   ggplot(pred_fit, aes(lon, lat, fill = exp(est))) + 
 #     geom_raster() +
@@ -73,3 +72,5 @@ land <- ne_download(scale = "large", type = "land", category = "physical", retur
 #          subtitle = "Effets fixes + aléatoires spatiaux + aléatoires spatio-temporels")
 #   
 # }
+
+
