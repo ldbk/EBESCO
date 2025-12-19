@@ -43,7 +43,7 @@
 # ============================================================================== #
 
 data_test_model <- data_CGFS_crs %>% 
-  dplyr::select(year, X, Y, lat, lon, gear, depth, presence_absence, densityKgKm2, totalWeightKg, sweptAreaKm2)
+  dplyr::select(year, X, Y, lat, lon, gear, depth, substrate, presence_absence, densityKgKm2, totalWeightKg, sweptAreaKm2)
 
 
 # ------------------------------------------------------------------------------ #
@@ -85,7 +85,6 @@ if (model_version %in% c("m2_density_year")){
 }
 
 
-
 # ------------------------------------------------------------------------------ #
 #### m3 : presence/absence ~ year + depth #### 
 # ------------------------------------------------------------------------------ #
@@ -122,6 +121,64 @@ if (model_version %in% c("m4_density_year_depth")){
                   spatiotemporal = "IID")
   
 }
+
+
+
+# ------------------------------------------------------------------------------ #
+#### m5 : density ~ year + depth + gear #### 
+# ------------------------------------------------------------------------------ #
+
+if (model_version %in% c("m5_density_year_depth_gear")){
+  
+  model_formula = densityKgKm2 ~ 0 + as.factor(year) + depth + as.factor(gear)
+  
+  model <- sdmTMB(data = data_test_model,
+                  formula = model_formula,
+                  mesh = bspde,
+                  family = tweedie(link = "log"),
+                  spatial = "on", 
+                  time = "year",
+                  spatiotemporal = "IID")
+  
+}
+
+
+# ------------------------------------------------------------------------------ #
+#### m6 : density ~ year + depth + substrate + gear #### 
+# ------------------------------------------------------------------------------ #
+
+if (model_version %in% c("m6_density_year_depth_substrate_gear")){
+  
+  model_formula = densityKgKm2 ~ 0  + as.factor(year) + depth + as.factor(substrate) + as.factor(gear)
+  
+  model <- sdmTMB(data = data_test_model,
+                  formula = model_formula,
+                  mesh = bspde,
+                  family = tweedie(link = "log"),
+                  # family = delta_lognormal(link1 = "logit", link2 = "log"),
+                  # family = delta_gamma(link1 = "logit", link2 = "log"),
+                  # family =  delta_gamma(type = "poisson-link"),
+                  spatial = "on", 
+                  time = "year",
+                  spatiotemporal = "IID")
+  
+}
+
+
+if (model_version %in% c("m7_presence_year_depth_substrate_gear")){
+  
+  model_formula = presence_absence ~ 0 + as.factor(year) + depth + as.factor(substrate) + as.factor(gear)
+  
+  model <- sdmTMB(data = data_test_model,
+                  formula = model_formula,
+                  mesh = bspde,
+                  family = binomial(link = "logit"),
+                  spatial = "on", 
+                  time = "year",
+                  spatiotemporal = "IID")
+  
+}
+
 
 
 
