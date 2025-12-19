@@ -249,6 +249,58 @@ if (study_domain == "Entire_English_Channel"){
   # range(sp_data_CGFS_density$startLongDD)
   # range(sp_data_CGFS_density$endLongDD)
   
+
+  # sp_data_CGFS_density %>%
+  #   ggplot(aes(x = densityKgKm2)) +
+  #   geom_histogram(bins = 50, fill = "grey70", color = "black") +
+  #   facet_wrap(~ year, scales = "free_y") +
+  #   labs(x = "Densité (kg/km²)", y = "Nombre de traits",
+  #        title = "Distribution des densités par année (zéros inclus)") 
+  # 
+  # sp_data_CGFS_density %>%
+  #   filter(densityKgKm2 > 0) %>%
+  #   ggplot(aes(x = densityKgKm2)) +
+  #   geom_histogram(color = "black") +
+  #   facet_wrap(~ year, scales = "free_y") +
+  #   labs(x = "Densité (kg/km²)", y = "Nombre de traits",
+  #        title = "Distribution des densités positives par année (zéros exclus)") 
+  # 
+  # sp_data_CGFS_density %>%
+  #   filter(densityKgKm2 > 0) %>%
+  #   ggplot(aes(x = densityKgKm2)) +
+  #   geom_histogram(color = "black") +
+  #   facet_wrap(~ year, scales = "free_y") +
+  #   scale_x_log10() +
+  #   labs(x = "Densité (kg/km², échelle log)", y = "Nombre de traits",
+  #        title = "Distribution des densités positives par année (zéros exclus, échelle log)") 
+  # 
+  # 
+  # sp_data_CGFS_density %>%
+  #   filter(densityKgKm2 > 0) %>%
+  #   ggplot(aes(x = factor(year), y = densityKgKm2)) +
+  #   geom_boxplot(outlier.alpha = 0.3) +
+  #   scale_y_log10() +
+  #   labs(x = "Année", y = "Densité (kg/km², log)",
+  #        title = "Distribution des densités positives par année (zéros exclus, échelle log)") 
+  # 
+  # 
+  # sp_data_CGFS_density %>%
+  #   group_by(year) %>%
+  #   summarise(n = n(),
+  #             prop_zero = mean(densityKgKm2 == 0)) %>%
+  #   ggplot(aes(x = factor(year), y = prop_zero)) +
+  #   geom_col() +
+  #   labs(x = "Année", y = "Proportion de zéros", 
+  #        title = "Proportion de zéros par année") 
+  # 
+  # sp_data_CGFS_density %>%
+  #   filter(densityKgKm2 > 0) %>%
+  #   ggplot(aes(sample = log(densityKgKm2))) +
+  #   stat_qq() +
+  #   stat_qq_line() +
+  #   facet_wrap(~ year) +
+  #   labs(title = "QQ-plots de log(densité) par année",
+  #        y = "Quantiles observés", x = "Quantiles théoriques") 
   
   
   # ------------------------------------------------------------------------------#
@@ -279,38 +331,48 @@ if (study_domain == "Entire_English_Channel"){
   
   
   # Plot depth by location and year
-  # ggplot(sp_data_CGFS_density, aes(x = lon, y = lat, color = depth)) +
-  #   geom_point() +
-  #   facet_wrap(~ year) +
-  #   scale_color_viridis_c(option = "magma", direction = -1, name = "Depth (m)") +
-  #   labs(title = "Depth (m) at CGFS stations – Eastern English Channel")
-  
-  
+  ggplot(sp_data_CGFS_density, aes(x = lon, y = lat)) +
+    geom_point() +
+    facet_wrap(~ year) +
+    scale_color_viridis_c(option = "magma", direction = -1, name = "Depth (m)") +
+    labs(title = "Depth (m) at CGFS stations – Eastern English Channel")
+
   # ------------------------------------------------------------------------------#
   ####  4. ADD SUBSTRATE TO DENSITY DATA #### 
   # ------------------------------------------------------------------------------#
   
   # https://emodnet.ec.europa.eu/en/seabed-habitats 
   
-  substrate_csv <- read_csv("01_DATA/substrate/Multiscale - folk 7.csv")
+  # Load the substrate raster from a NetCDF file
+  substrate_EC <- raster(here("01_DATA", "substrate", "Substrate5levels_English_Channel.nc"))
   
-  substrate_sf <- st_as_sf(substrate_csv, wkt = "geom", crs = 4326)
+  # Plot the cropped substrate
+  # plot(substrate_EC, add=TRUE, main = "Substrate of English Channel")
   
-  substrate_sf <- substrate_sf %>%
-    dplyr::select(folk_5cl_txt)
+  # Convert the substrate raster from a 'RasterLayer' object (raster package)
+  # to a 'SpatRaster' object (terra package) so it can be used with terra functions
+  substrate_EC_spat <- rast(substrate_EC)
   
-  substrate_vect <- vect(substrate_sf)
+  # Convert the CGFS data frame to a spatial vector
+  pts_CGFS_substrate <- vect(sp_data_CGFS_density,
+                             geom = c("lon", "lat"),
+                             crs  = crs(bathy_EC_spat))
   
-  substr_at_pts <- terra::extract(substrate_vect, pts_CGFS)
+  # Extract depth values from the raster at point locations
+  # terra::extract() returns a data frame with ID + raster values
+  subtrate_df <- terra::extract(substrate_EC_spat, pts_CGFS_substrate)
   
-  sp_data_CGFS_density$substrate <- substr_at_pts$folk_5cl_txt
-  
-  
+  # Add depth values to the original data frame
+  # The second column of depth_df is the raster value (first is ID)
+  sp_data_CGFS_density$substrate <- subtrate_df[, 2]
   
   #remove CGFS points out of the English Channel shapefile (depth = NA)
   CGFS_density_bathy <- sp_data_CGFS_density %>%
     filter(!is.na(depth))
-  
+
+  # object to save substrate classes
+  substrate_csv <- read_csv(here("01_DATA/substrate/Multiscale - folk 7.csv"))
+  substrate_levels <- levels(factor(substrate_csv$folk_5cl_txt))
   
   # ------------------------------------------------------------------------------#
   #### 5. ADD UTM #### 
@@ -327,7 +389,6 @@ if (study_domain == "Entire_English_Channel"){
                                    utm_crs = utm_crs_used,       # output CRS value for the UTM zone
                                    units = "km")                 # UTM units
 }  
-
 
 
 
