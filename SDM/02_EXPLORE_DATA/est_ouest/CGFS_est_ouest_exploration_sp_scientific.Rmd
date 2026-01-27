@@ -1,0 +1,1051 @@
+---
+title: "CGFS est ouest exploration *`r params$sp_scientific`*"
+date: "`r Sys.Date()`"
+output: 
+  rmdformats::downcute:
+    highlight: zenburn
+  html_document:
+    toc: true
+    toc_float: true
+params:
+  sp_scientific: "Capros aper"
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r knit_with_name, eval=FALSE, include=FALSE}
+
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+# Run this chunk to generate the HTML report
+# with an output filename that includes the species name (set it in the YALM)
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+
+sp <- params$sp_scientific
+
+rmarkdown::render(
+  input = here("02_EXPLORE_DATA/est_ouest/CGFS_est_ouest_exploration_sp_scientific.Rmd"),
+  params = list(sp_scientific = sp),
+  output_file = paste0("CGFS_est_ouest_exploration_", gsub(" ", "_", sp), ".html"))
+
+# species_list <- c(
+#   "Conger conger",
+#   "Engraulis encrasicolus",
+#   "Micromesistius poutassou",
+#   "Merluccius merluccius",
+#   "Capros aper",
+#   "Trachurus trachurus",
+#   "Chelidonichthys cuculus",
+#   "Chelidonichthys lucerna",
+#   "Eutrigla gurnardus",
+#   "Zeus faber",
+#   "Solea solea",
+#   "Dicentrarchus labrax"
+# )
+
+```
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE)
+
+sp_scientific = params$sp_scientific
+
+```
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# LOAD THE PACKAGES
+
+library(ggplot2)
+library(dplyr)
+library(here)
+library(devtools)
+library(TMBhelper)
+library(TMB)
+library(tidyverse)
+library(pak)
+library(readxl)
+library(readr)
+library(sf)
+library(sdmTMB)
+library(ncdf4)
+library(terra)
+library(raster)
+library(ggOceanMaps)
+library(ggspatial) 
+library(patchwork)
+
+
+```
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+ # ------------------------------------------------------------------------------#
+  #### 1. LOAD THE DATA #### 
+  # ------------------------------------------------------------------------------#
+  
+  
+  catch_ECGFS <- read_delim(here("01_DATA/survey/ECGFS/CGFS_1988_2024_ELFIC.V1.4_catch_2025-03-28.csv"),
+                            delim = ";", escape_double = FALSE, trim_ws = TRUE, show_col_types = FALSE)
+  
+  operation_ECGFS <- read_delim(here("01_DATA/survey/ECGFS/CGFS_1988_2024_ELFIC.V1.4_operation_2025-03-28.csv"),
+                                delim = ";", escape_double = FALSE, trim_ws = TRUE, show_col_types = FALSE)
+  
+  # others_parameters <- read_delim("01_DATA/ECGFS/CGFS_1988_2024_ELFIC.V1.4_otherParameters_2025-03-28.csv", 
+  #                                 delim = ";", escape_double = FALSE, trim_ws = TRUE, show_col_types = FALSE)
+  # --> many NA for depth variable
+  
+  # operation_CGFS_clean <- operation_CGFS %>%
+  #   filter(!is.na(startLatDD), !is.na(startLongDD))
+  
+  # unique(catch_CGFS$comment)
+  # unique(operation_CGFS$comment)
+  # unique(operation_CGFS$gear)
+  # unique(catch_CGFS$stationCode)
+  
+  # lat_range <- range(operation_CGFS$startLatDD)
+  # lon_range <- range(operation_CGFS$startLongDD)
+  
+  
+  catch_WCGFS <-  read_delim(here("01_DATA/survey/WCGFS/WCGFS_2018_2024_ELFIC.V1.5_catch_2025-03-31.csv"), 
+                             delim = ";", escape_double = FALSE, trim_ws = TRUE, show_col_types = FALSE)
+  
+  operation_WCGFS <-  read_delim(here("01_DATA/survey/WCGFS/WCGFS_2018_2024_ELFIC.V1.5_operation_2025-03-31.csv"), 
+                                 delim = ";", escape_double = FALSE, trim_ws = TRUE, show_col_types = FALSE)
+  
+
+  
+  # ------------------------------------------------------------------------------#
+  ####  2. TRANSFORM CGFS DATA #### 
+  # ------------------------------------------------------------------------------#
+  
+  # ------------------#
+  # Eastern CGFS
+  # ------------------#
+  
+  # select data corresponding to the species of interest
+  sp_catch_ECGFS <- catch_ECGFS %>%
+    dplyr::filter(scientificName == sp_scientific) %>%
+    dplyr::select(serie, year, stationCode, operationID, haulID, totalNumber, totalWeightKg)
+  
+  
+  # Combine catch, coordinates and other parameters data frames
+  sp_data_ECGFS <- operation_ECGFS %>%
+    left_join(sp_catch_ECGFS, by = c("serie", "year", "stationCode", "operationID", "haulID")) 
+  
+  # Replace missing values in totalNumber and totalWeightKg with 0
+  # Calculate midpoint coordinates for each haul
+  # Compute density in kg/km²
+  # Create a presence/absence variable (0 = absence, 1 = presence)
+  sp_data_ECGFS_density <- sp_data_ECGFS %>%
+    mutate(totalNumber = ifelse(is.na(totalNumber), 0, totalNumber),
+           totalWeightKg = ifelse(is.na(totalWeightKg), 0, totalWeightKg)) %>%
+    mutate(lat = (endLatDD + startLatDD)/2,
+           lon = (endLongDD + startLongDD)/2) %>%
+    mutate(densityKgKm2 = totalWeightKg/sweptAreaKm2) %>%
+    mutate(presence_absence = ifelse(totalWeightKg == 0, 0, 1))%>%
+    filter(year >= 2018)
+  
+  
+  # ------------------#
+  # Western CGFS
+  # ------------------#
+  
+  # select data corresponding to the species of interest
+  sp_catch_WCGFS <- catch_WCGFS %>%
+    dplyr::filter(scientificName == sp_scientific) %>%
+    dplyr::select(serie, year, stationCode, operationID, haulID, totalNumber, totalWeightKg)
+  
+  
+  # Combine catch, coordinates and other parameters data frames
+  sp_data_WCGFS <- operation_WCGFS %>%
+    left_join(sp_catch_WCGFS, by = c("serie", "year", "stationCode", "operationID", "haulID")) 
+  
+  # Replace missing values in totalNumber and totalWeightKg with 0
+  # Calculate midpoint coordinates for each haul
+  # Compute density in kg/km²
+  # Create a presence/absence variable (0 = absence, 1 = presence)
+  sp_data_WCGFS_density <- sp_data_WCGFS %>%
+    mutate(totalNumber = ifelse(is.na(totalNumber), 0, totalNumber),
+           totalWeightKg = ifelse(is.na(totalWeightKg), 0, totalWeightKg)) %>%
+    mutate(lat = (endLatDD + startLatDD)/2,
+           lon = (endLongDD + startLongDD)/2) %>%
+    mutate(densityKgKm2 = totalWeightKg/sweptAreaKm2) %>%
+    mutate(presence_absence = ifelse(totalWeightKg == 0, 0, 1))
+  
+  
+  # ---------------------------------#
+  # Combine Eastern & Western CGFS
+  # ---------------------------------#
+  
+  sp_data_CGFS_density <- bind_rows(sp_data_ECGFS_density, sp_data_WCGFS_density)
+  
+  # range(sp_data_CGFS_density$startLatDD)
+  # range(sp_data_CGFS_density$endLatDD)
+  # range(sp_data_CGFS_density$startLongDD)
+  # range(sp_data_CGFS_density$endLongDD)
+  
+  # ------------------------------------------------------------------------------#
+  ####  3. ADD BATHYMETRY TO DENSITY DATA #### 
+  # ------------------------------------------------------------------------------#
+  
+  
+  # Load the bathymetry raster from a NetCDF file
+  bathy_EC <- raster(here("01_DATA", "bathymetry", "EC_Bathy", "Bathy_English_Channel.nc"), varname ="depth")
+  
+  # Plot the cropped bathymetry
+  # plot(bathy_EC, main = "Bathymetry of English Channel", col = terrain.colors(100))
+  
+  bathy_EC_spat <- rast(bathy_EC)
+  
+  # Convert the CGFS data frame to a spatial vector
+  pts_CGFS <- vect(sp_data_CGFS_density,
+                   geom = c("lon", "lat"),
+                   crs  = crs(bathy_EC_spat))
+  
+  # Extract depth values from the raster at point locations
+  # terra::extract() returns a data frame with ID + raster values
+  depth_df <- terra::extract(bathy_EC_spat, pts_CGFS)
+  
+  # Add depth values to the original data frame
+  # The second column of depth_df is the raster value (first is ID)
+  sp_data_CGFS_density$depth <- depth_df[, 2]
+  
+  sp_data_CGFS_density$presence_absence <- factor(sp_data_CGFS_density$presence_absence,
+                                                  levels = c(0, 1),  
+                                                  labels = c("Absence", "Presence"))
+  # Plot depth by location and year
+  # ggplot(sp_data_CGFS_density, aes(x = lon, y = lat, color = depth)) +
+  #   geom_point() +
+  #   facet_wrap(~ year) +
+  #   scale_color_viridis_c(option = "magma", direction = -1, name = "Depth (m)") +
+  #   labs(title = "Depth (m) at CGFS stations – Eastern English Channel")
+  
+  
+  # ------------------------------------------------------------------------------#
+  ####  4. ADD BATHYMETRY TO DENSITY DATA #### 
+  # ------------------------------------------------------------------------------#
+  
+  # Load the substrate raster from a NetCDF file
+  substrate_EC <- raster(here("01_DATA", "substrate", "Substrate5levels_English_Channel.nc"))
+  
+  # Plot the cropped substrate
+  # plot(substrate_EC, main = "Substrate of English Channel")
+  
+  # Convert the substrate raster from a 'RasterLayer' object (raster package)
+  # to a 'SpatRaster' object (terra package) so it can be used with terra functions
+  substrate_EC_spat <- rast(substrate_EC)
+  
+  # Convert the CGFS data frame to a spatial vector
+  pts_CGFS_substrate <- vect(sp_data_CGFS_density,
+                             geom = c("lon", "lat"),
+                             crs  = crs(substrate_EC_spat))
+  
+  # Extract depth values from the raster at point locations
+  # terra::extract() returns a data frame with ID + raster values
+  subtrate_df <- terra::extract(substrate_EC_spat, pts_CGFS_substrate)
+  
+  # Add depth values to the original data frame
+  # The second column of depth_df is the raster value (first is ID)
+  sp_data_CGFS_density$substrate <- subtrate_df[, 2]
+  
+  #remove CGFS points out of the English Channel shapefile (depth = NA)
+  CGFS_density_bathy <- sp_data_CGFS_density %>%
+    filter(!is.na(substrate))
+
+  # object to see substrate classes
+  # substrate_csv <- read_csv(here("01_DATA/substrate/Multiscale - folk 7.csv"))
+  # unique(substrate_csv$folk_5cl_txt)
+  
+sp_data_CGFS_density$substrate <- factor(sp_data_CGFS_density$substrate,
+  levels = c(1, 2, 3, 4, 5),
+  labels = c("1. Mud to muddy", 
+             "2.Sand",
+             "3. Coarse-grained sediment",
+             "4. Mixed sediment",
+             "5. Rock & boulders"))
+
+  #remove CGFS points out of the English Channel shapefile (depth = NA)
+  CGFS_density_bathy <- sp_data_CGFS_density %>%
+    filter(!is.na(depth))
+  
+  
+  
+  # ------------------------------------------------------------------------------#
+  #### 5. ADD UTM #### 
+  # ------------------------------------------------------------------------------#
+  
+  utm_crs_used <- get_crs(CGFS_density_bathy, c("lon", "lat"))
+  
+  # Add UTM (Universal Transverse Mercator) coordinates to a data frame
+  # This is useful since geostatistical modeling should generally be performed in an equal-distance projection.
+  data_CGFS_crs <- add_utm_columns(CGFS_density_bathy, 
+                                   ll_names = c("lon", "lat"),   # longitude and latitude column names
+                                   ll_crs = 4326,                # CRS = coordinates reference system --> 4326 = WGS84 (most commun)
+                                   utm_names = c("X", "Y"),      # output column names for the UTM columns
+                                   utm_crs = utm_crs_used,       # output CRS value for the UTM zone
+                                   units = "km")                 # UTM units
+  
+  
+
+  EC_shp <- vect(here("01_DATA", "shapefiles", "English_Channel", "English_Channel.shp"))
+  EC_sf <- st_as_sf(EC_shp) %>% st_transform(4326)
+
+
+```
+
+# Spatial annual distribution of *`r sp_scientific`*  
+
+```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+
+data_CGFS_crs <- data_CGFS_crs %>%
+  mutate(presence_absence = factor(presence_absence,
+                                  levels = c("Absence", "Presence")))
+
+df_plot_ouest <- data_CGFS_crs %>% filter(gear == "GOV 36/49")
+
+leg_xy_ouest <- df_plot_ouest %>% 
+  filter(!is.na(lon), !is.na(lat)) %>% 
+  slice(1)
+
+leg_occ_ouest <- data.frame(presence_absence = factor(c("Absence","Presence"),
+                                                      levels = c("Absence","Presence")),
+                            lon = leg_xy_ouest$lon,
+                            lat = leg_xy_ouest$lat)
+
+n_pre_ouest <- sum(df_plot_ouest$presence_absence == "Presence", na.rm = TRUE)
+
+plot_ouest <- basemap(data = EC_sf) +   
+  geom_sf(data = EC_sf, fill = NA) +
+  geom_spatial_point(data = df_plot_ouest %>% 
+                       filter(presence_absence == "Absence"),
+                     aes(lon, lat), shape = 4, color = "red", size = 1.5, stroke = 1.2,
+                     alpha = 0.6, show.legend = FALSE) +
+  geom_spatial_point(data = df_plot_ouest %>% 
+                       filter(presence_absence == "Presence"),
+                     aes(lon, lat, 
+                         size  = totalWeightKg),
+                     shape = 16, color = "blue", alpha = 0.7) +
+  geom_spatial_point(data = leg_occ_ouest,
+                     aes(lon, lat, shape = presence_absence, color = presence_absence),
+                     size = 3, alpha = 0, inherit.aes = FALSE) +
+  scale_shape_manual(values = c("Absence" = 4, "Presence" = 16),
+                     name = "Occurrence", 
+                     labels = c("Absence", "Présence"),
+                     drop = FALSE) +
+  scale_color_manual(values = c("Absence" = "red", "Presence" = "blue"), 
+                     labels = c("Absence", "Présence"), 
+                     name   ="Occurrence",
+                     guide  = "none",
+                     drop = FALSE) +
+  scale_size_continuous(name = "Biomasse (kg)") +
+  facet_wrap(~ year, nrow = 2) +
+  guides(shape = guide_legend(order = 1,
+                              override.aes = list(color = c("red", "blue"),
+                                                  alpha = 1)),
+         size  = guide_legend(order = 2)) +
+  ggtitle(bquote("Distribution spatiale annuelle de la biomasse (kg) de " * 
+                   italic(.(sp_scientific)) * " (CGFS)"))+
+  labs(x=NULL, y=NULL)
+
+if(n_pre_ouest == 0){
+  plot_ouest <- plot_ouest + guides(size = "none")
+}
+
+df_plot_est <- data_CGFS_crs %>% filter(gear == "GOV 36/47")
+
+leg_xy_est <- df_plot_est %>% 
+  filter(!is.na(lon), !is.na(lat)) %>% 
+  slice(1)
+
+leg_occ_est <- data.frame(presence_absence = factor(c("Absence","Presence"),
+                                                    levels = c("Absence","Presence")),
+                          lon = leg_xy_est$lon,
+                          lat = leg_xy_est$lat)
+
+n_pre_est <- sum(df_plot_est$presence_absence == "Presence", na.rm = TRUE)
+
+plot_est <- basemap(data = EC_sf) +   
+  geom_sf(data = EC_sf, fill = NA) +
+  geom_spatial_point(data = df_plot_est %>% 
+                       filter(presence_absence == "Absence"),
+                     aes(lon, lat), shape = 4, color = "red", size = 1.5, stroke = 1.2,
+                     alpha = 0.6, show.legend = FALSE) +
+  geom_spatial_point(data = df_plot_est %>% 
+                       filter(presence_absence == "Presence"),
+                     aes(lon, lat, 
+                         size  = totalWeightKg),
+                     shape = 16, color = "blue", alpha = 0.7) +
+  geom_spatial_point(data = leg_occ_est,
+                     aes(lon, lat, shape = presence_absence, color = presence_absence),
+                     size = 3, alpha = 0, inherit.aes = FALSE) +
+  scale_shape_manual(values = c("Absence" = 4, "Presence" = 16),
+                     name = "Occurrence", 
+                     labels = c("Absence", "Présence"),
+                     drop = FALSE) +
+  scale_color_manual(values = c("Absence" = "red", "Presence" = "blue"), 
+                     labels = c("Absence", "Présence"), 
+                     name   ="Occurrence",
+                     guide  = "none",
+                     drop = FALSE) +
+  scale_size_continuous(name = "Biomasse (kg)") +
+  facet_wrap(~ year, nrow = 2) +
+  guides(shape = guide_legend(order = 1,
+                              override.aes = list(color = c("red", "blue"),
+                                                  alpha = 1)),
+         size  = guide_legend(order = 2)) +
+  labs(x=NULL, y=NULL)
+
+if(n_pre_est == 0){
+  plot_est <- plot_est + guides(size = "none")
+}
+
+patchwork::wrap_plots(plot_ouest, plot_est, ncol = 1)
+
+```
+
+
+<br>
+<br>
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+ 
+ data_CGFS_crs <- data_CGFS_crs %>%
+   mutate(presence_absence = factor(presence_absence,
+                                   levels = c("Absence", "Presence")))
+ 
+ plot_ouest <- basemap(data = EC_sf) +   
+   geom_sf(data = EC_sf, fill = NA) +
+   # Absence = croix rouge 
+   geom_spatial_point(
+     data = data_CGFS_crs %>% 
+       filter(gear == "GOV 36/49", presence_absence == "Absence"),
+     aes(lon, lat, shape = presence_absence),
+     color = "red", size = 1.5, stroke = 1.2, alpha = 0.6) +
+   # Présence = points (abondance en couleur + biomasse en taille)
+   geom_spatial_point(
+     data = data_CGFS_crs %>% 
+       filter(gear == "GOV 36/49", presence_absence == "Presence"),
+     aes(lon, lat, 
+       color = totalNumber, 
+         size = totalWeightKg, 
+         shape = presence_absence),
+     alpha = 0.7) +
+   scale_shape_manual(values = c("Absence" = 4, "Presence" = 16),
+                      name = "Occurrence", 
+                      labels = c("Absence", "Présence"),
+                      drop = FALSE) +
+   scale_color_viridis_c(option = "viridis", name = "Abondance") +
+   scale_size_continuous(name = "Biomasse (kg)") +
+   facet_wrap(~year, nrow = 2) +
+   guides(shape = guide_legend(override.aes = list(color = c("red", "black")), 
+                               order = 1),
+          size  = guide_legend(order = 2),
+          color = guide_colorbar(order = 3))+
+   ggtitle(bquote("Distribution spatiale annuelle de l'abondance et la biomasse (kg) de " * italic(.(sp_scientific)) * " (CGFS)"))+
+     labs(x=NULL, y=NULL)
+ 
+ plot_est <- basemap(data = EC_sf) +   
+   geom_sf(data = EC_sf, fill = NA) +
+   # Absence = croix rouge 
+   geom_spatial_point(
+     data = data_CGFS_crs %>% 
+       filter(gear == "GOV 36/47", presence_absence == "Absence"),
+     aes(lon, lat, shape = presence_absence),
+     color = "red", size = 1.5, stroke = 1.2, alpha = 0.6) +
+   # Présence = points (abondance en couleur + biomasse en taille)
+   geom_spatial_point(
+     data = data_CGFS_crs %>% 
+       filter(gear == "GOV 36/47", presence_absence == "Presence"),
+     aes(lon, lat, 
+         color = totalNumber, 
+         size = totalWeightKg, 
+         shape = presence_absence),
+     alpha = 0.7) +
+   scale_shape_manual(values = c("Absence" = 4, "Presence" = 16),
+                      name = "Occurrence", 
+                      labels = c("Absence", "Présence"),
+                      drop = FALSE) +
+   scale_color_viridis_c(option = "viridis", name = "Abondance") +
+   scale_size_continuous(name = "Biomasse (kg)") +
+   facet_wrap(~year, nrow = 2) +
+   guides(shape = guide_legend(override.aes = list(color = c("red", "black")), 
+                               order = 1),
+          size  = guide_legend(order = 2),
+          color = guide_colorbar(order = 3))+
+   labs(x=NULL, y=NULL)
+ 
+patchwork::wrap_plots(plot_ouest, plot_est, ncol = 1)
+ 
+ 
+```
+ 
+<br>
+<br>
+\vspace{2cm}
+
+# Annual presence proportion of *`r sp_scientific`*  
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+sp_data_CGFS_density %>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+  group_by(gear, year) %>%
+  summarise(prop_zero = mean(densityKgKm2 != 0)) %>%
+  ggplot(aes(x = factor(year), y = prop_zero)) +
+  geom_col() +
+  facet_wrap(~ gear)+
+  theme_bw()+
+  labs(x = "Année", y = "Proportion de présence",
+       title = "Proportion de présence de l'espèce par année")
+
+```
+<br>
+<br>
+\vspace{2cm}
+
+# Potential family distribution for biomass and density data
+
+```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+
+source(here('02_EXPLORE_DATA/plot_family_distrib.R'))
+
+p_density_west <- compute_plot_distr("west", sp_data_CGFS_density, "densityKgKm2")
+p_weight_west <- compute_plot_distr("west", sp_data_CGFS_density, "totalWeightKg")
+
+(p_density_west$plot_gamma_lognormal | p_weight_west$plot_gamma_lognormal) /
+(p_density_west$plot_tweedie | p_weight_west$plot_tweedie)
+
+```
+<br>
+<br>
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+
+source(here('02_EXPLORE_DATA/plot_family_distrib.R'))
+
+p_density_east <- compute_plot_distr("east", sp_data_CGFS_density, "densityKgKm2")
+p_weight_east <- compute_plot_distr("east", sp_data_CGFS_density, "totalWeightKg")
+
+(p_density_east$plot_gamma_lognormal | p_weight_east$plot_gamma_lognormal) /
+(p_density_east$plot_tweedie | p_weight_east$plot_tweedie)
+
+```
+<br>
+<br>
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+
+sp_data_CGFS_density %>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+  pivot_longer(cols = c(densityKgKm2, totalWeightKg),
+               names_to = "variable",
+               values_to = "value") %>%
+  mutate(variable = recode(variable,
+                           densityKgKm2 = "Densité (kg/km²)",
+                           totalWeightKg  = "Biomasse totale (kg)"),
+         variable = factor(variable, 
+                    levels = c("Densité (kg/km²)", "Biomasse totale (kg)"))) %>%
+  ggplot(aes(x = value, fill = variable)) +
+  geom_histogram(color = "black", bins = 30) +
+  facet_grid(year ~ gear + variable, scales = "free") +
+  labs(x = NULL,
+       y = "Nombre de traits",
+       title = "Distribution des densités et biomasses par année (zéros inclus)") +
+  theme_bw()+
+  theme(legend.position = "top")
+
+
+```
+<br>
+<br>
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+
+sp_data_CGFS_density %>%
+  filter(densityKgKm2 > 0) %>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+  pivot_longer(cols = c(densityKgKm2, totalWeightKg),
+               names_to = "variable",
+               values_to = "value") %>%
+  mutate(variable = recode(variable,
+                           densityKgKm2 = "Densité (kg/km²)",
+                           totalWeightKg  = "Biomasse totale (kg)"),
+         variable = factor(variable, 
+                    levels = c("Densité (kg/km²)", "Biomasse totale (kg)"))) %>%
+  ggplot(aes(x = value, fill = variable)) +
+  geom_histogram(color = "black", bins = 30) +
+  facet_grid(year ~ gear + variable, scales = "free") +
+  labs(x = NULL,
+       y = "Nombre de traits",
+       title = "Distribution des densités et biomasses par année (zéros exclus)")+
+  theme_bw()+
+  theme(legend.position = "top")
+
+```
+
+<br>
+<br>
+\vspace{2cm}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+sp_data_CGFS_density %>%
+    filter(densityKgKm2 > 0, totalWeightKg > 0) %>%   
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est")), 
+         densityKgKm2 = log(densityKgKm2),
+         totalWeightKg = log(totalWeightKg)) %>%
+  pivot_longer(cols = c(densityKgKm2, totalWeightKg),
+               names_to = "variable",
+               values_to = "value") %>%
+  mutate(variable = recode(variable,
+                           densityKgKm2 = "Densité (kg/km², log)",
+                           totalWeightKg  = "Biomasse totale (kg, log)"),
+         variable = factor(variable, 
+                    levels = c("Densité (kg/km², log)", "Biomasse totale (kg, log)"))) %>%
+  ggplot(aes(x = factor(year), y = value)) +
+  geom_boxplot(outlier.alpha = 0.5, alpha = 0.2, width = 0.3) +
+  geom_violin(alpha = 0.2)+
+  facet_grid(variable~gear)+
+  labs(x = "Année", y = NULL,
+       title = "Distribution des densités et biomasses positives par année (zéros exclus, échelle log)")+
+  theme_bw()
+
+```
+
+
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Scatter plot of density by year
+data_CGFS_crs%>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+ggplot(aes(y = totalNumber, x = totalWeightKg)) +
+  geom_point()+
+  facet_wrap(~gear)+
+  ggtitle(bquote("Abondance en fonction de la biomasse totale de " * italic(.(sp_scientific))))+
+  labs(y = "Nombre d'individus", x = "Poids total (kg)", subtitle = "Chaque point représente 1 trait")+
+  theme_bw()
+
+```
+<br>
+<br>
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Scatter plot of density by year
+data_CGFS_crs%>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+ggplot(aes(y = totalNumber, x = totalWeightKg)) +
+  geom_point() +
+  facet_grid(year~gear) +
+    ggtitle(bquote("Abondance en fonction de la biomasse totale de " * italic(.(sp_scientific)) * " par année"))+
+  labs(y = "Nombre d'individus", x = "Poids total (kg)", subtitle = "Chaque point représente 1 trait")+
+  theme_bw()
+
+```
+
+<br>
+<br>
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Scatter plot of density by year
+data_CGFS_crs%>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+ggplot(aes(x = factor(year), y = totalWeightKg)) +
+  geom_point()+
+  facet_wrap(~gear)+
+  theme_bw() +
+  labs(x = "Années", y = "Biomasse (kg)")+
+  ggtitle(bquote("Biomasse totale annuelle de " * italic(.(sp_scientific)) * " par trait"))
+```
+<br>
+<br>
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+data_CGFS_crs%>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+ggplot(aes(x = factor(year), y = totalWeightKg)) +
+  geom_boxplot(outlier.alpha = 0.4, alpha=0.1, width = 0.2)+
+  geom_violin(alpha=0.1)+
+  facet_wrap(~gear)+
+  theme_bw() +
+  labs(x = "Années", y = "Biomasse (kg)")+
+  ggtitle(bquote("Biomasse totale annuelle de " * italic(.(sp_scientific)) * " par trait (zéros inclus)"))
+
+```
+<br>
+<br>
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+data_CGFS_crs%>%
+  filter(densityKgKm2 > 0)%>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+ggplot(aes(x = factor(year), y = totalWeightKg)) +
+  geom_boxplot(outlier.alpha = 0.4, alpha=0.1, width = 0.2)+
+  geom_violin(alpha=0.1)+
+  facet_wrap(~gear)+
+  theme_bw() +
+  labs(x = "Années", y = "Biomasse (kg)")+
+  ggtitle(bquote("Biomasse totale annuelle de " * italic(.(sp_scientific)) * " par trait (zéros exclus)"))
+
+```
+
+<br>
+<br>
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Column plot of total density by year
+data_CGFS_crs%>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+    pivot_longer(cols = c(densityKgKm2, totalWeightKg),
+               names_to = "variable",
+               values_to = "value") %>%
+  mutate(variable = recode(variable,
+                           densityKgKm2 = "Densité (kg/km²)",
+                           totalWeightKg  = "Biomasse totale (kg)"),
+         variable = factor(variable, 
+                    levels = c("Densité (kg/km²)", "Biomasse totale (kg)"))) %>%
+ggplot(aes(x = factor(year), y=value)) + 
+  geom_col() +
+  labs(y = NULL, x = "Années") +
+  facet_grid(variable~gear, scales = ("free_y"))+
+  ggtitle(bquote("Biomasse et densité totales de " * italic(.(sp_scientific)) * " par année"))+
+  theme_bw()
+
+```
+
+<br>
+<br>
+\vspace{2cm}
+
+# Bathymetry of English Channel
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+# Plot the cropped bathymetry
+plot(bathy_EC, main = "Bathymetry of English Channel", col = terrain.colors(100))
+
+
+```
+
+<br>
+<br>
+\vspace{2cm}
+
+# Bathymetry at CGFS stations
+
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+
+# Plot depth by location and year
+
+basemap(data = EC_sf) +   
+  geom_sf(data = EC_sf, fill = NA) +        
+  geom_spatial_point(data = data_CGFS_crs, 
+                     aes(x = lon, y = lat, color = depth), alpha = 0.8) +
+  scale_color_viridis_c(option = "magma", direction = -1, name = "Profondeur (m)") +
+  facet_wrap(~ year) +
+  labs(title = "Profondeur aux stations CGFS", x = "", y = "") 
+
+
+```
+<br>
+<br>
+\vspace{2cm}
+
+# Bathymetry and *`r sp_scientific`* presence
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+data_CGFS_crs%>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+  ggplot(aes(x = presence_absence, y = -depth)) +
+  geom_point() +
+  facet_grid(year~ gear) +
+  labs(x = "Absence/Presence", y = "Depth (m)") +
+  ggtitle(bquote("Effect of depth on " * italic(.(sp_scientific)) * " presence"))+
+  theme_bw()
+
+```
+<br>
+<br>
+\vspace{2cm}
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+data_CGFS_crs%>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+  ggplot(aes(x =presence_absence, y = -depth)) +
+  geom_violin() +
+  geom_boxplot(width = 0.2) +
+  facet_wrap(~ gear) +
+  labs(x = "Absence/Presence",  y = "Depth (m)")+
+  ggtitle(bquote("Comparison of depth between " * italic(.(sp_scientific)) * " absence and presence"))+
+  theme_bw()
+
+```
+
+<br>
+<br>
+\vspace{2cm}
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+
+data_CGFS_crs%>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+  ggplot(aes(y = -depth, fill = presence_absence)) +
+  geom_histogram(binwidth = 10, position = "stack", color ="gray") +
+  scale_y_continuous(breaks = seq(-5,-125,-10), minor_breaks = FALSE)+
+  facet_wrap(~ gear) +
+  labs(y = "Depth (m)", x = "Number of hauls", fill = "Presence/Absence") +
+  ggtitle(bquote("Distribution of " * italic(.(sp_scientific)) * " presence and absence per 10m depth bin"))+
+  theme_bw()
+
+```
+<br>
+<br>
+\vspace{2cm}
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+data_CGFS_crs%>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+  ggplot(aes(y = -depth, fill = presence_absence)) +
+  geom_histogram(binwidth = 10, position = "fill", color = "gray") +  # position="fill" = proportion
+  scale_x_continuous(labels = scales::percent_format()) +
+  scale_y_continuous(breaks = seq(-5,-125,-10), minor_breaks = FALSE)+
+  facet_wrap(~ gear) +
+  labs(y = "Depth (m)",  x = "Proportion",  fill = "Presence/Absence")+
+  ggtitle(bquote("Proportion of " * italic(.(sp_scientific)) * " presence and absence per 10m depth bin"))+
+  theme_bw()
+```
+
+<br>
+<br>
+\vspace{2cm}
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+data_CGFS_crs%>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+  ggplot(aes(y = -depth, fill = presence_absence)) +
+  geom_histogram(binwidth = 10, position = "fill", color = "gray") +  # position="fill" = proportion
+  facet_grid(year~gear)+
+  scale_x_continuous(labels = scales::percent_format()) +
+  labs(y = "Depth (m)",  x = "Proportion",  fill = "Presence/Absence")+
+  ggtitle(bquote("Proportion of " * italic(.(sp_scientific)) * " presence and absence per 10m depth bin per year"))+
+  theme_bw()
+```
+<br>
+<br>
+\vspace{2cm}
+
+
+
+# Bathymetry and *`r sp_scientific`* biomass/density
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+data_CGFS_crs%>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+  ggplot(aes(x = totalWeightKg, y = -depth)) +
+  geom_point() +
+  facet_grid(year~gear)+
+  theme_bw()+
+  labs(x = "total weight per haul (kg)", y = "depth") +
+  ggtitle(bquote("Distribution of " * italic(.(sp_scientific)) * " biomass across depth"))
+
+```
+<br>
+<br>
+\vspace{2cm}
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+data_CGFS_crs%>%
+    filter(totalWeightKg > 0)%>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+  filter(totalWeightKg > 0)%>%
+  ggplot(aes(x = totalWeightKg, y = -depth)) +
+  geom_point() +
+  facet_grid(year~gear)+
+  theme_bw()+
+  labs(x = "total weight per haul (kg)", y = "depth") +
+  ggtitle(bquote("Distribution of " * italic(.(sp_scientific)) * " biomass across depth (excluding 0)"))
+
+```
+<br>
+<br>
+\vspace{2cm}
+
+# Substrate of English Channel
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+
+levels(substrate_EC) <- data.frame(ID = 1:5,
+  Substrate = c("Mud to muddy",
+                "Sand",
+                "Coarse-grained sediment",
+                "Mixed sediment",
+                "Rock & boulders"))
+
+plot(substrate_EC,
+     col = c("#CC99CC", "#fdb462", "#7fc97f", "#80b1d3", "#fb8072"),
+     legend = FALSE,
+     main = "Substrate of English Channel")
+
+legend("bottomright",
+       legend = c("Mud to muddy", "Sand", "Coarse-grained sediment", "Mixed sediment", "Rock & boulders"),
+  fill = c("#CC99CC", "#fdb462", "#7fc97f", "#80b1d3", "#fb8072"),
+  bty = "n")
+
+```
+
+# Substrate at CGFS stations
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+basemap(data = EC_sf, land.col = "grey80", land.border = "grey80") +   
+  geom_sf(data = EC_sf, fill = NA, color= NA) +        
+  geom_spatial_point(data = data_CGFS_crs, 
+                     aes(x = lon, y = lat, color = substrate), alpha = 0.8) +
+  facet_wrap(~ year) +
+  theme(panel.grid = element_blank(),
+        panel.border = element_rect(color = "white", fill = NA, linewidth = 1),
+        strip.background = element_rect(fill = "grey40", color = "white"),
+        strip.text = element_text(color = "white", face = "bold"))+
+  labs(title = "Profondeur aux stations CGFS", x = "", y = "", color = "Nature du substrat") 
+
+```
+
+<br>
+<br>
+\vspace{2cm}
+
+# Substrate and *`r sp_scientific`* presence absence
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+data_CGFS_crs%>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+ggplot(aes(x = substrate, fill = factor(presence_absence))) +
+  geom_bar(alpha = 0.6, color = "black", position = "dodge")+
+  facet_wrap(~gear)+
+  theme_bw()+
+  labs(title = "Nombre de présence absence en fonction de la nature du substrat", 
+       x = "Nombre de présence absence", y = "Nature du substrat", fill = "Occurence") 
+
+
+```
+
+<br>
+<br>
+\vspace{2cm}
+
+
+
+# Substrate and *`r sp_scientific`* biomass/density
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+data_CGFS_crs%>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+  ggplot(aes(x = substrate, y = totalWeightKg)) +
+  geom_boxplot(alpha = 0.1, width = 0.3)+
+  geom_violin(alpha = 0.1)+
+  facet_wrap(~gear)+
+  theme_bw()+
+  labs(x = "Nature du substrat", y = "Biomasse (kg)") +
+  ggtitle(bquote("Biomasse de " * italic(.(sp_scientific)) * " en fonction de la nature du substrat"))
+
+
+```
+<br>
+<br>
+\vspace{2cm}
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+data_CGFS_crs%>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+  filter(totalWeightKg > 0)%>%
+ggplot(aes(x = substrate, y = totalWeightKg)) +
+  geom_boxplot(alpha = 0.1, width = 0.3)+
+  geom_violin(alpha = 0.1)+
+  facet_wrap(~gear)+
+  theme_bw()+
+  labs(x = "Nature du substrat", y = "Biomasse (kg)", subtitle = "Densités = 0 exclues") +
+  ggtitle(bquote("Biomasse de " * italic(.(sp_scientific)) * " en fonction de la nature du substrat"))
+
+
+```
+<br>
+<br>
+\vspace{2cm}
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+data_CGFS_crs%>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+ggplot(aes(x = substrate, y = totalWeightKg, color = totalWeightKg == 0)) +
+  geom_jitter(alpha =0.4) +
+  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "blue"),  guide = "none") +
+    facet_wrap(~gear)+
+  theme_bw()+
+  labs(x = "Nature du substrat",  y = "Biomasse (kg)", subtitle = "Rouge : biomasse = 0, Bleu : biomasse > 0") +
+  ggtitle(bquote("Biomasse de " * italic(.(sp_scientific)) * " en fonction de la nature du substrat"))
+
+
+```
+<br>
+<br>
+\vspace{2cm}
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE, paged.print=TRUE}
+
+data_CGFS_crs%>%
+  mutate(gear = recode(gear, "GOV 36/49" = "Ouest", "GOV 36/47" = "Est"),
+         gear = factor(gear, levels = c("Ouest", "Est"))) %>%
+  filter(totalWeightKg > 0)%>%
+ggplot(aes(x = substrate, y = totalWeightKg)) +
+  geom_jitter()+
+  facet_wrap(~gear)+
+  theme_bw()+
+  labs(x = "Nature du substrat", y = "Biomasse (kg)", subtitle = "Biomasse = 0 exclues") +
+  ggtitle(bquote("Biomass de " * italic(.(sp_scientific)) * " en fonction de la nature du substrat"))
+
+
+```
