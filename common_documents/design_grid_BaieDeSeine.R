@@ -46,7 +46,7 @@ grid_pred <- add_utm_columns(coords,
                              ll_names = c("lon", "lat"),
                              ll_crs = 4326,
                              utm_names = c("X", "Y"),
-                             utm_crs = utm_crs_used,
+                             utm_crs = 32630,
                              units = "km")
 
 
