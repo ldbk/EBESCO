@@ -136,7 +136,14 @@ combined_outputs <- AIC_all_df %>%
 
 
 
-
+family_colors <- c(
+  "tweedie" = "#66c2a5",
+  "deltagamma" = "#fc8d62",
+  "deltalognormal" = "#8da0cb",
+  "deltagammapoissonlink" = "#e78ac3",
+  "gamma" = "#ffd92f",
+  "lognormal" = "#a6d854"
+)
 
 # PLOT AIC + DELTA LL
 

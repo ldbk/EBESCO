@@ -6,31 +6,42 @@
 
 # Function that builds a mesh from CGFS data
 run_mesh_spde <- function(data_CGFS, region_name = "region") {
+  
 
-
-# ------------------------------------------------------------------------------#
-#### 1. Compute shortest mean distance ####
-# ------------------------------------------------------------------------------#
-
-# Compute the nearest neighbor euclidean distance (km) for all points each year
-shortest_distance_matrix <- data_CGFS %>%
-  dplyr::select(year, X, Y) %>%
-  group_by(year) %>%
-  mutate(
-    nearest_neighbor_dist_km = {
-      distance_matrix <- as.matrix(stats::dist(cbind(X, Y), method = "euclidean"))
-      diag(distance_matrix) <- NA                     # remove self-distance
-      apply(distance_matrix, 1, min, na.rm = TRUE)    # keep minimum distance for each row/point
-    }
-  ) %>%
-  ungroup()
-
-# Cutoff defines the minimum allowed distance between mesh vertices 
-cutoff = mean(shortest_distance_matrix$nearest_neighbor_dist_km)
-
-# east : nearest_neighbor_dist_km : Mean : 12.974 
-# west : nearest_neighbor_dist_km : Mean : 22.435
-
+# # ------------------------------------------------------------------------------#
+# #### 1. Compute shortest mean distance ####
+# # ------------------------------------------------------------------------------#
+# 
+# # Compute the nearest neighbor euclidean distance (km) for all points each year
+# shortest_distance_matrix <- data_CGFS_east %>%
+#   dplyr::select(year, X, Y) %>%
+#   group_by(year) %>%
+#   mutate(
+#     nearest_neighbor_dist_km = {
+#       distance_matrix <- as.matrix(stats::dist(cbind(X, Y), method = "euclidean"))
+#       diag(distance_matrix) <- NA                     # remove self-distance
+#       apply(distance_matrix, 1, min, na.rm = TRUE)    # keep minimum distance for each row/point
+#     }
+#   ) %>%
+#   ungroup()
+# 
+# # Cutoff defines the minimum allowed distance between mesh vertices
+# cutoff = mean(shortest_distance_matrix$nearest_neighbor_dist_km)
+# #
+# # # east : nearest_neighbor_dist_km : Mean : 12.974
+# # # west : nearest_neighbor_dist_km : Mean : 22.435
+# 
+# min_dist <- shortest_distance_matrix %>%
+#   group_by(year)%>%
+#   summarise(min_dist = min(nearest_neighbor_dist_km))
+# 
+# mean(min_dist$min_dist)
+# 
+# max_dist <- shortest_distance_matrix %>%
+#   group_by(year)%>%
+#   summarise(max_dist = max(nearest_neighbor_dist_km))
+# 
+# mean(max_dist$max_dist)
 
 # ------------------------------------------------------------------------------#
 #### 2. Build the standard mesh without barriers ####
@@ -38,11 +49,32 @@ cutoff = mean(shortest_distance_matrix$nearest_neighbor_dist_km)
 
 # Create a mesh object that contains matrices to apply the SPDE approach
 # Cutoff defines the minimum allowed distance between mesh vertices in the units of X and Y
-mesh <- make_mesh(data_CGFS, c("X", "Y"), cutoff = cutoff)
+# mesh <- make_mesh(data_CGFS, c("X", "Y"), cutoff = cutoff)
 # plot(mesh)
 
-
-
+  # Mesh parameters depend on the region size
+  if (region_name == "west") {
+    # West English Channel (~305 × 219 km)
+    range0 <- 100                     # initial spatial range ≈ 1/3 of study area
+    max_edge <- c(40, 100)            # # max triangle edge length; inner and outer meshes ; < spatial range/5 inside, 5 times max_edge outside
+    cutoff <- 13                    # avoid very small triangles --> cutoff = max_edge/5
+    offset <- c(40, 100)            # ≈ one range between data and mesh boundary offset = c(max.edge, bound.outer)
+    
+  } else if (region_name == "east") {
+    # East English Channel (~210 × 183 km)
+    range0 <- 70                    # initial spatial range ≈ 1/3 of study area
+    max_edge <- c(26, 70)            # < spatial range/5 inside, , 5 times max_edge outside
+    cutoff <- 5                      # avoid very small triangles --> cutoff = max_edge/5
+    offset <- c(26, 70)            # inner and outer border widths ≈ one range between data and mesh boundary  offset = c(max.edge, bound.outer)
+  }
+  
+  mesh <- make_mesh(data_CGFS, c("X", "Y"),
+                    fmesher_func = fmesher::fm_mesh_2d_inla,
+                    max.edge = max_edge,
+                       # - use 5 times max.edge in the outer extension/offset/boundary
+                    cutoff = cutoff, 
+                    offset = offset)
+  # plot(mesh)
 # ------------------------------------------------------------------------------#
 #### 3. Add the land barrier to the mesh ####
 # ------------------------------------------------------------------------------#
@@ -108,16 +140,18 @@ mesh_df_land  <- bspde$mesh_sf[bspde$barrier_triangles, ]
 plot_mesh <- ggplot() +
   geom_sf(data = land_mesh, fill = "grey80", color = NA) +
   gg(mesh_m, edge.color = "grey50", edge.linewidth = 0.2) +
-  geom_sf(data = mesh_df_water, size = 1, colour = "blue") +
-  geom_sf(data = mesh_df_land,  size = 1, colour = "red") +
+  geom_sf(data = mesh_df_water, size = 1.5, colour = "darkblue", alpha = 0.5) +
+  geom_sf(data = mesh_df_land,  size = 1.5, colour = "red", alpha = 0.5) +
+  geom_spatial_point(data = data_CGFS, aes(lon, lat), color = "black", size = 1.5, alpha = 0.5)+
   scale_y_continuous(breaks = scales::pretty_breaks(n = 3))+
   scale_x_continuous(breaks = scales::pretty_breaks(n = 4))+
   coord_sf(crs = st_crs(land_mesh)) +
   theme_minimal() +
   theme(panel.grid = element_blank(),
         axis.ticks = element_line(colour = "black"))+
-  labs(x="", y="", title = paste0("Maillage triangulaire avec cutoff de ", cutoff, "km"),
-       subtitle = "rouge = centre des triangles sur la terre\nbleu = centre des triangles en mer")
+  labs(x="", y="", title = paste0("Mesh with a cutoff of ", round(cutoff,1), "km"),
+       subtitle = "red = centers of triangles on land\nblue = centers of triangles at sea")
+
 
 # Return everything useful 
 return(list(
@@ -146,4 +180,9 @@ if (isTRUE(East_English_Channel)) {
 if (isTRUE(West_English_Channel)) {
   mesh_by_region$west <- run_mesh_spde(data_CGFS = data_CGFS_west, region_name = "west")
 }
+
+
+
+
+
 

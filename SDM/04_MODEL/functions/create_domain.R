@@ -31,6 +31,12 @@ English_Channel <- SeaAreas[SeaAreas$NAME == "English Channel", ]
 # Export the extracted English Channel shapefile for later use
 # writeVector(English_Channel, here("01_DATA/shapefiles/English_Channel/English_Channel.shp"))
 
+# # Extract only the English Channel polygon from the dataset
+# Celtic_Sea <- SeaAreas[SeaAreas$NAME == "Celtic Sea", ] 
+# 
+# # Export the extracted English Channel shapefile for later use
+# writeVector(Celtic_Sea, here("01_DATA/shapefiles/Celtic_Sea/Celtic_Sea.shp"))
+
 
 # ------------------------------------------------------------------------------#
 #### BAIE DE SEINE SHAPEFILE #### 

@@ -32,10 +32,10 @@ ggplot(east_4folds) +
              size = 5, alpha = 0.7) +
   geom_text(aes(x = X, y = Y, label = fold_id),
             size = 3) +
-  facet_wrap(~ year) +
+  facet_wrap(~ year, nrow=2) +
   theme_bw() +
-  labs(title = "Manche Est — 21 folds (3 par année)", 
-       color = "Zone", x = "X", y = "Y")
+  labs(title = "Eastern English Channel — 28 folds (4 per year)", 
+       color = "Zone", x = NULL, y = NULL)
 
 
 
@@ -66,10 +66,10 @@ ggplot(west_3folds) +
              size = 5, alpha = 0.7) +
   geom_text(aes(x = X, y = Y, label = fold_id),
             size = 3) +
-  facet_wrap(~ year) +
+  facet_wrap(~ year, nrow=2) +
   theme_bw() +
-  labs(title = "Manche Est — 21 folds (3 par année)", 
-       color = "Zone", x = "X", y = "Y")
+  labs(title = "Western English Channel — 21 folds (3 per year)", 
+       color = "Zone", x = NULL, y = NULL)
 
 saveRDS(west_3folds, file = here::here("01_DATA", "folds_CV", "west_3folds.rds"))
 saveRDS(east_4folds, file = here::here("01_DATA", "folds_CV", "east_4folds.rds"))

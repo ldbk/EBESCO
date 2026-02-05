@@ -7,7 +7,6 @@ valid_models_predict <- readRDS(here("05_OUTPUTS", "model_diagnostics",
 
 
 get_valid_models <- function(valid_models_predict) {
-  # pré-initialise toutes les régions avec des listes vides
   res <- setNames(vector("list", length(valid_models_predict)),
                   names(valid_models_predict))
   
@@ -19,13 +18,11 @@ get_valid_models <- function(valid_models_predict) {
       models_valid <- region_list[[response]]$models_valid
       
       if (!is.null(models_valid) && length(models_valid) > 0) {
-        # crée la sous-liste région si besoin (déjà list() ici)
         res[[region]][[response]] <- models_valid
       }
     }
   }
   
-  # optionnel : enlever les régions vides si tu ne veux pas les garder
   res <- res[vapply(res, length, integer(1)) > 0]
   
   res
@@ -71,8 +68,6 @@ predict_all_valid_models <- function(valid_models_predict, grids_by_region) {
 preds_all <- predict_all_valid_models(valid_models_predict, grids_by_region)
   
 
-
-# Choisit quoi mapper : base (standard) ou base1+base2 (delta)
 get_fill_expr <- function(data, base) {
   c1 <- paste0(base, "1")
   c2 <- paste0(base, "2")
@@ -149,9 +144,6 @@ plot_pred_map <- function(data, grid_pred, sp_scientific, response, fill_base, s
 
 fills_to_plot <- c("est", "est_non_rf", "omega_s", "epsilon_st")
 
-out_dir <- here::here("05_OUTPUTS", "maps_predictions", paste0("maps_predictions_", sp_safe))
-dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
-
 plots_all <- list()
 
 for (region in names(preds_all)) {
@@ -166,7 +158,6 @@ for (region in names(preds_all)) {
       
       for (fill_base in fills_to_plot) {
         
-        # skip si la variable n’existe pas (ni base, ni base1/base2)
         ok <- (fill_base %in% names(pred)) ||
           all(paste0(fill_base, c("1","2")) %in% names(pred))
         if (!ok) next
