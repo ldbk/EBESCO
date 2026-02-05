@@ -1,0 +1,938 @@
+---
+title: "Modeling the distribution of commercially important, sound-producing species using CGFS survey data"
+date: "`r Sys.Date()`"
+output: 
+  rmdformats::downcute:
+  highlight: zenburn
+html_document :
+  toc: true
+toc_float: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = getwd())                                # garde le working dir actif
+knitr::opts_knit$set(envir = globalenv())                               # utilise l'env global
+knitr::opts_chunk$set(echo = FALSE, message=FALSE,warning=FALSE)
+```
+
+```{r include=FALSE}
+
+family_colors <- c(
+  "tweedie" = "#66c2a5",
+  "deltagamma" = "#fc8d62",
+  "deltalognormal" = "#8da0cb",
+  "deltagammapoissonlink" = "#e78ac3",
+  "gamma" = "#ffd92f",
+  "lognormal" = "#a6d854"
+)
+
+```
+
+# 1. Data
+
+<br/>
+ 
+```{r echo=FALSE}
+
+print(sp_scientific)
+
+```
+<br/>
+
+
+```{r echo=FALSE, warning=FALSE}
+
+knitr::include_graphics(here("01_DATA", "prop_pres_sp.png"))
+
+```
+
+<br/>
+
+Spatial annual distribution of *`r sp_scientific`* 
+
+```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+
+EC_sf <- terra::vect(here::here("01_DATA", "shapefiles", "English_Channel", "English_Channel.shp")) %>%
+  sf::st_as_sf() %>%
+  sf::st_transform(4326)
+
+if (isTRUE(West_English_Channel)) {
+
+if (sp_scientific == "Trachurus trachurus") {
+  plot_west <- basemap(data = EC_sf) +   
+  geom_sf(data = EC_sf, fill = NA) +        
+  geom_spatial_point(data = data_CGFS_west, 
+                     aes(x = lon, y = lat, size = totalWeightKg),
+                     color = "blue", alpha = 0.6) +
+  scale_size_continuous(name ="Biomass (kg)") +
+  facet_wrap(~ year, nrow = 2) +
+  labs(x = NULL, y = NULL)
+} else {
+ plot_west <- basemap(data = EC_sf) +   
+  geom_sf(data = EC_sf, fill = NA) +        
+  geom_spatial_point(data = data_CGFS_west, 
+                     aes(x = lon, y = lat, 
+                         color = factor(presence_absence), 
+                         size  = totalWeightKg), 
+                     alpha = 0.6) +
+  scale_color_manual(values = c("0" = "red", "1" = "blue"), 
+                     labels = c("Absence", "Presence"), 
+                     name = "Occurence") +
+  scale_size_continuous(name ="Biomass (kg)") +
+  facet_wrap(~ year, nrow=2) +
+  labs(x=NULL, y=NULL) 
+}
+}
+
+if (isTRUE(East_English_Channel)) {
+
+plot_east <- basemap(data = EC_sf) +   
+  geom_sf(data = EC_sf, fill = NA) +        
+  geom_spatial_point(data = data_CGFS_east, 
+                     aes(x = lon, y = lat, 
+                         color = factor(presence_absence), 
+                         size  = totalWeightKg), 
+                     alpha = 0.6) +
+  scale_color_manual(values = c("0" = "red", "1" = "blue"), 
+                     labels = c("Absence", "Presence"), 
+                     name = "Occurence") +
+  scale_size_continuous(name ="Biomass (kg)") +
+  facet_wrap(~ year, nrow=2) +
+  labs(x=NULL, y=NULL)
+
+}
+
+patchwork::wrap_plots(Filter(Negate(is.null), list(plot_west, plot_east)), ncol = 1)
+
+```
+
+<br/>  
+
+```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+
+EC_sf <- terra::vect(here::here("01_DATA", "shapefiles", "English_Channel", "English_Channel.shp")) %>%
+  sf::st_as_sf() %>%
+  sf::st_transform(4326)
+
+if (isTRUE(West_English_Channel)) {
+
+if (sp_scientific == "Trachurus trachurus") {
+  plot_west <- basemap(data = EC_sf) +   
+  geom_sf(data = EC_sf, fill = NA) +        
+  geom_spatial_point(data = data_CGFS_west, 
+                     aes(x = lon, y = lat, size = densityKgKm2),
+                     color = "blue", alpha = 0.6) +
+  scale_size_continuous(name ="Biomass density (kg/km²)") +
+  facet_wrap(~ year, nrow = 2) +
+  labs(x = NULL, y = NULL)
+} else {
+ plot_west <- basemap(data = EC_sf) +   
+  geom_sf(data = EC_sf, fill = NA) +        
+  geom_spatial_point(data = data_CGFS_west, 
+                     aes(x = lon, y = lat, 
+                         color = factor(presence_absence), 
+                         size  = densityKgKm2), 
+                     alpha = 0.6) +
+  scale_color_manual(values = c("0" = "red", "1" = "blue"), 
+                     labels = c("Absence", "Presence"), 
+                     name = "Occurence") +
+  scale_size_continuous(name ="Biomass density (kg/km²)") +
+  facet_wrap(~ year, nrow=2) +
+  labs(x=NULL, y=NULL) 
+}
+}
+
+if (isTRUE(East_English_Channel)) {
+
+plot_east <- basemap(data = EC_sf) +   
+  geom_sf(data = EC_sf, fill = NA) +        
+  geom_spatial_point(data = data_CGFS_east, 
+                     aes(x = lon, y = lat, 
+                         color = factor(presence_absence), 
+                         size  = totalWeightKg), 
+                     alpha = 0.6) +
+  scale_color_manual(values = c("0" = "red", "1" = "blue"), 
+                     labels = c("Absence", "Presence"), 
+                     name = "Occurence") +
+  scale_size_continuous(name ="Biomass (kg)") +
+  facet_wrap(~ year, nrow=2) +
+  labs(x=NULL, y=NULL)
+
+}
+
+patchwork::wrap_plots(Filter(Negate(is.null), list(plot_west, plot_east)), ncol = 1)
+
+```
+
+<br/>  
+
+```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) {
+  p_Moran_west <- compute_plot_Moran(data_CGFS_west, region = "west")
+  p_resids_west <- residuals_withoutRF(data_CGFS_west, region = "west")
+  west_plots <- Filter(Negate(is.null), list(p_Moran_west, p_resids_west))
+  if (length(west_plots)) print(patchwork::wrap_plots(west_plots, ncol = 2, widths = c(1, 2)))
+}
+
+```
+
+<br/>  
+
+```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) {
+  p_Moran_east <- compute_plot_Moran(data_CGFS_east, region = "east")
+  p_resids_east <- residuals_withoutRF(data_CGFS_east, region = "east")
+  east_plots <- Filter(Negate(is.null), list(p_Moran_east, p_resids_east))
+  if (length(east_plots)) print(patchwork::wrap_plots(east_plots, ncol = 2, widths = c(1, 2)))
+}
+
+```
+
+<br/>  
+<br/>  
+
+# 2. Mesh 
+
+```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel) & isTRUE(West_English_Channel)) {
+  ggpubr::ggarrange(mesh_by_region$west$plot_mesh, mesh_by_region$east$plot_mesh)
+} else if (isTRUE(East_English_Channel) & !isTRUE(West_English_Channel)) {
+  mesh_by_region$east$plot_mesh
+} else if (!isTRUE(East_English_Channel) & isTRUE(West_English_Channel)) {
+  mesh_by_region$west$plot_mesh
+} 
+
+```
+ <br/>  
+blue points = centers of triangles located at sea  
+red points = centers of triangles positioned on land  
+In land triangles, the spatial range is reduced to 10% of the range used at sea (range_fraction = 0.1).
+
+<br/>  
+<br/>  
+
+
+
+# 3. Model candidates 
+
+## 3.1. Fits Statuses
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+statuses_type <- c("models_valid", "models_sanity_failed", "models_fit_failed")
+
+sanity_df <- imap_dfr(sanity_by_region, function(responses_by_region, region) {
+  imap_dfr(responses_by_region, function(model_status, response) {
+    keep <- intersect(names(model_status), statuses_type)
+    map_dfr(keep, function(status) {
+      families <- names(model_status[[status]])
+      if (length(families) == 0) return(NULL)
+      tibble(region = region,
+             response = response,
+             family = families,
+             status = status)
+    })
+  })
+})
+
+sanity_df <- sanity_df %>%
+  mutate(region = factor(region, levels = c("west", "east")))
+
+
+ggplot(sanity_df, aes(x = response, y = family, fill = status)) +
+  geom_tile(color = "white", linewidth = 0.4) +
+  facet_wrap(~ region) +
+  scale_fill_manual(
+    values = c("models_valid" = "#2ca25f",
+               "models_fit_failed" = "#de2d26",
+               "models_sanity_failed" = "#ffb703"), 
+    labels = c("models_valid" = "Converged fit with consistent \nestimates", 
+               "models_fit_failed" = "Non-convergent fit", 
+               "models_sanity_failed" = "Converged fit rejected after \npost-fit consistency checks")) +
+  theme_bw()+
+  theme(  legend.spacing.y = unit(0.9, "cm"),
+  legend.key.height = unit(0.9, "cm"),
+  legend.text = element_text(lineheight = 1.1))
+
+
+```
+
+
+## 3.2. Parameters estimates
+ 
+```{r echo=FALSE, fig.height=10, fig.width=10, message=FALSE, warning=FALSE}
+
+params_all %>%
+  ggplot(aes(x = family, y = estimate, shape = component, color = family)) +
+  geom_point(size = 2.8, position = position_dodge(width = 0.6)) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), 
+                width = 0.2, position = position_dodge(width = 0.6)) +
+  facet_grid(parameter ~ region + response, scales = "free_y") +
+  labs(x = "Family",  y = "Estimate", shape = "Component",
+    title = "sdmTMB parameters estimates") +
+  scale_color_manual(values = family_colors)+
+  guides(color = "none") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "top")
+
+```
+
+<br/>
+
+range: distance beyond which two locations can be considered effectively independent (spatial correlation becomes negligible, approximately ~0.13 correlation).  
+
+sigma_O: marginal standard deviation of the spatial random field (omega); it measures the average amplitude of spatial variation that is persistent over time and not explained by the model. Lower values indicate that covariates explain the spatial structure more effectively.  
+
+sigma_E: marginal standard deviation of the spatio-temporal random field (epsilon); it measures the average amplitude of spatial variation that changes over time and is not explained by the model. Lower values indicate that the spatio-temporal structure is already well captured by the other components of the model.  
+
+<br/>
+<br/>
+
+
+## 3.3. Analytical randomized quantile residuals
+
+Observation–prediction discrepancies are projected into a standardized normal space, independently of the probability family.
+A randomized quantile residual represents the standardized position of an observation within the model’s predictive distribution.
+
+
+```{r echo=FALSE, fig.height=9, fig.width=10, message=FALSE, warning=FALSE}
+
+
+if (isTRUE(East_English_Channel) & isTRUE(West_English_Channel)) {
+  residuals_east <- (residuals_by_region$east$residuals_df) %>%
+    mutate(region = "east")
+  residuals_west <- (residuals_by_region$west$residuals_df) %>%
+    mutate(region = "west")
+
+  residuals_df<- bind_rows(residuals_west, residuals_east)%>%
+    mutate(region = factor(region, levels = c("west", "east")))
+  
+  ggplot(residuals_df, aes(sample = resid, color = family)) +
+    stat_qq() +
+    stat_qq_line() +
+    scale_color_manual(values = family_colors)+
+    facet_grid(family ~ region + response + component, scales = "free") +
+    labs(x = "Theoretical quantiles", y = "Quantile residuals",
+         title = "Normal Q-Q Plot") +
+    theme_bw()+
+    theme(legend.position = "none")
+    
+} else if (isTRUE(East_English_Channel) & !isTRUE(West_English_Channel)) {
+  residuals_by_region$east$plot_normalqq
+} else if (!isTRUE(East_English_Channel) & isTRUE(West_English_Channel)) {
+  residuals_by_region$west$plot_normalqq
+} 
+
+```
+
+
+```{r echo=FALSE, fig.height=9, fig.width=10, message=FALSE, warning=FALSE}
+
+
+# if (isTRUE(East_English_Channel) & isTRUE(West_English_Channel)) {
+#   residuals_east <- (residuals_by_region$east$residuals_df) %>%
+#     mutate(region = "east")
+#   residuals_west <- (residuals_by_region$west$residuals_df) %>%
+#     mutate(region = "west")
+# 
+#   residuals_df<- bind_rows(residuals_west, residuals_east)%>%
+#     mutate(region = factor(region, levels = c("west", "east")))
+#   
+#   ggplot(residuals_df, aes(x = resid, fill = family)) +
+#     geom_histogram(bins = 30, alpha = 0.5, position = "identity") +
+#     facet_grid(family ~ region + response + component) +
+#     labs(x = "Quantile residuals", y = "Frequency",
+#          title = "Histogram of quantile residuals (frequencies)") +
+#     scale_fill_manual(values = family_colors)+
+#     theme_bw() +
+#     theme(legend.position = "none")
+#     
+# } else if (isTRUE(East_English_Channel) & !isTRUE(West_English_Channel)) {
+#   residuals_by_region$east$plot_normalqq
+# } else if (!isTRUE(East_English_Channel) & isTRUE(West_English_Channel)) {
+#   residuals_by_region$west$plot_normalqq
+# } 
+
+```
+
+
+```{r echo=FALSE, fig.height=9, fig.width=10, message=FALSE, warning=FALSE}
+
+
+if (isTRUE(East_English_Channel) & isTRUE(West_English_Channel)) {
+  residuals_east <- (residuals_by_region$east$residuals_df) %>%
+    mutate(region = "east")
+  residuals_west <- (residuals_by_region$west$residuals_df) %>%
+    mutate(region = "west")
+
+  residuals_df<- bind_rows(residuals_west, residuals_east)%>%
+    mutate(region = factor(region, levels = c("west", "east")))
+  
+ggplot(residuals_df, aes(x = resid, fill = family)) +
+    geom_histogram(aes(y = after_stat(density)),
+                   bins = 30, alpha = 0.5, position = "identity") +
+    stat_function(fun = dnorm, linewidth = 0.6, colour = "grey") +
+    facet_grid(family ~ region + response + component) +
+    scale_fill_manual(values = family_colors)+
+    labs(x = "Quantile residuals",y = "Density",
+         title = "Histogram of quantile residuals (density)") +
+    theme_bw() +
+    theme(legend.position = "none")
+    
+} else if (isTRUE(East_English_Channel) & !isTRUE(West_English_Channel)) {
+  residuals_by_region$east$plot_normalqq
+} else if (!isTRUE(East_English_Channel) & isTRUE(West_English_Channel)) {
+  residuals_by_region$west$plot_normalqq
+} 
+
+```
+
+
+```{r echo=FALSE, fig.height=18, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) {
+  plots <- residuals_by_region$west$maps
+  if (length(plots)) patchwork::wrap_plots(plots, ncol = 1)
+}
+
+```
+
+```{r echo=FALSE, fig.height=18, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) {
+  plots <- residuals_by_region$east$maps
+  if (length(plots)) patchwork::wrap_plots(plots, ncol = 1)
+}
+
+```
+
+<br/>
+<br/>
+
+## 3.4. DHARMa simulation - RMSE, MAE
+
+Model fit was evaluated by quantifying discrepancies between observed data and DHARMa-simulated data generated from the fitted models, using 1000 simulations and based on the root mean square error (RMSE) and mean absolute error (MAE).
+
+```{r echo=FALSE, fig.height=10, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) {
+  plots <- Filter(Negate(is.null), list(west_RMSE, west_MAE)) 
+  if (length(plots)) patchwork::wrap_plots(plots, ncol = 1)
+}
+
+```
+
+<br/>
+
+```{r echo=FALSE, fig.height=10, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) {
+  plots <- Filter(Negate(is.null), list(east_RMSE, east_MAE)) 
+  if (length(plots)) patchwork::wrap_plots(plots, ncol = 1)
+}
+
+```
+
+<br/>
+<br/>
+
+## 3.5. AIC weights
+
+```{r echo=FALSE, fig.height=4, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel) & isTRUE(West_English_Channel)) {
+ AIC_all <-bind_rows(AIC_by_region$west, AIC_by_region$east)
+ AIC_df <- AIC_all %>%
+   mutate(region = factor(region, levels = c("west", "east")))
+} 
+
+if (!isTRUE(East_English_Channel) & isTRUE(West_English_Channel)) {
+  AIC_df <- AIC_by_region$west
+} 
+
+if (isTRUE(East_English_Channel) & !isTRUE(West_English_Channel)) {
+  AIC_df <- AIC_by_region$east
+} 
+
+ggplot(AIC_df,
+       aes(x = weight*100, y = 1, color = family, shape = family)) +
+  geom_point(size = 4) +
+  facet_grid(response ~ region) +
+  scale_color_manual(values = family_colors)+
+  labs(x = "AIC weight (%)", y = NULL, color = "Family", shape = "Family") +
+  theme_bw() +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        legend.position = "top")
+
+```
+
+
+
+## 3.5. Spatial bloc cross-validation 
+
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) {
+
+west_3folds <- readRDS(here("01_DATA/folds_CV/west_3folds.rds"))
+ggplot(west_3folds) +
+  geom_point(aes(x = X, y = Y, color = factor(spatial_zone)),
+             size = 5, alpha = 0.7) +
+  geom_text(aes(x = X, y = Y, label = fold_id),
+            size = 3) +
+  facet_wrap(~ year, nrow=2) +
+  theme_bw() +
+  labs(title = "Western English Channel — 21 folds (3 per year)", 
+       color = "Zone", x = NULL, y = NULL)
+}
+
+```
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) {
+cross_validation_by_region$west$cv_scores
+}
+
+```
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) conv_summary_west
+
+```
+
+
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) {
+  
+east_4folds <- readRDS(here("01_DATA/folds_CV/east_4folds.rds"))
+ggplot(east_4folds) +
+  geom_point(aes(x = X, y = Y, color = factor(spatial_zone)),
+             size = 5, alpha = 0.7) +
+  geom_text(aes(x = X, y = Y, label = fold_id),
+            size = 3) +
+  facet_wrap(~ year, nrow=2) +
+  theme_bw() +
+  labs(title = "Eastern English Channel — 28 folds (4 per year)", 
+       color = "Zone", x = NULL, y = NULL)
+}
+
+```
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) {
+cross_validation_by_region$east$cv_scores
+}
+
+```
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) conv_summary_east
+
+```
+
+<br/>
+
+```{r echo=FALSE, fig.height=4, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel) & isTRUE(West_English_Channel)) {
+ CV_all <-bind_rows(cross_validation_by_region$west$cv_scores, 
+                     cross_validation_by_region$east$cv_scores)
+
+ CV_all_df <- CV_all %>%
+  mutate(region = factor(region, levels = c("west", "east"))) %>%
+  group_by(region, response) %>%
+  mutate(delta_sumLL = sum_loglik - max(sum_loglik))%>%
+  ungroup()
+} 
+
+if (!isTRUE(East_English_Channel) & isTRUE(West_English_Channel)) {
+  CV_all <- cross_validation_by_region$west$cv_scores
+  CV_all_df <- CV_all %>%
+    group_by(response) %>%
+    mutate(delta_sumLL = sum_loglik - max(sum_loglik))%>%
+    ungroup()
+} 
+
+if (isTRUE(East_English_Channel) & !isTRUE(West_English_Channel)) {
+  CV_all <- cross_validation_by_region$east$cv_scores
+  CV_all_df <- CV_all %>%
+    group_by(response) %>%
+    mutate(delta_sumLL = sum_loglik - max(sum_loglik))%>%
+    ungroup()
+} 
+
+ggplot(CV_all_df,
+       aes(x = delta_sumLL, y = 1, color = family, shape = family)) +
+  geom_point(size = 4) +
+  facet_grid(response ~ region) +
+  scale_color_manual(values = family_colors)+
+  labs(x = "CV sum_loglik", y = NULL, color = "Family", shape = "Family") +
+  theme_bw() +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        legend.position = "top")
+
+```
+
+<br/>
+<br/>
+
+
+# 4. Projection grid
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+plot_west <- grid_by_region$west$plot_grid
+plot_east <- grid_by_region$east$plot_grid
+patchwork::wrap_plots(Filter(Negate(is.null), list(plot_west, plot_east)), ncol = 2)
+```
+<br/>
+<br/>
+
+
+# 5. Predictions
+
+<br/>
+
+## 5.1. Western English Channel predictions
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+west_plot_tw_est <- plots_all$west$totalWeightKg[["tweedie"]][["est"]]
+west_plot_tw_est_fe <- plots_all$west$totalWeightKg[["tweedie"]][["est_non_rf"]]
+west_plot_tw_om <- plots_all$west$totalWeightKg[["tweedie"]][["omega_s"]]
+west_plot_tw_eps <- plots_all$west$totalWeightKg[["tweedie"]][["epsilon_st"]]
+
+west_plots <- Filter(Negate(is.null), list(west_plot_tw_est, west_plot_tw_est_fe, 
+                                           west_plot_tw_om, west_plot_tw_eps)) 
+
+if (length(west_plots)) patchwork::wrap_plots(west_plots, ncol = 1)
+
+```
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+west_plot_tw_est <- plots_all$west$densityKgKm2[["tweedie"]][["est"]]
+west_plot_tw_est_fe <- plots_all$west$densityKgKm2[["tweedie"]][["est_non_rf"]]
+west_plot_tw_om <- plots_all$west$densityKgKm2[["tweedie"]][["omega_s"]]
+west_plot_tw_eps <- plots_all$west$densityKgKm2[["tweedie"]][["epsilon_st"]]
+
+west_plots <- Filter(Negate(is.null), list(west_plot_tw_est, west_plot_tw_est_fe, 
+                                           west_plot_tw_om, west_plot_tw_eps)) 
+
+if (length(west_plots)) patchwork::wrap_plots(west_plots, ncol = 1)
+
+```
+
+<br/>
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+west_plot_dgm_est <- plots_all$west$totalWeightKg[["deltagamma"]][["est"]]
+west_plot_dgm_est_fe <- plots_all$west$totalWeightKg[["deltagamma"]][["est_non_rf"]]
+west_plot_dgm_om <- plots_all$west$totalWeightKg[["deltagamma"]][["omega_s"]]
+west_plot_dgm_eps <- plots_all$west$totalWeightKg[["deltagamma"]][["epsilon_st"]]
+
+west_plots <- Filter(Negate(is.null), list(west_plot_dgm_est, west_plot_dgm_est_fe, 
+                                           west_plot_dgm_om, west_plot_dgm_eps)) 
+
+if (length(west_plots)) patchwork::wrap_plots(west_plots, ncol = 1)
+
+```
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+west_plot_dgm_est <- plots_all$west$densityKgKm2[["deltagamma"]][["est"]]
+west_plot_dgm_est_fe <- plots_all$west$densityKgKm2[["deltagamma"]][["est_non_rf"]]
+west_plot_dgm_om <- plots_all$west$densityKgKm2[["deltagamma"]][["omega_s"]]
+west_plot_dgm_eps <- plots_all$west$densityKgKm2[["deltagamma"]][["epsilon_st"]]
+
+west_plots <- Filter(Negate(is.null), list(west_plot_dgm_est, west_plot_dgm_est_fe,
+                                           west_plot_dgm_om, west_plot_dgm_eps)) 
+
+if (length(west_plots)) patchwork::wrap_plots(west_plots, ncol = 1)
+
+```
+
+<br/>
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+west_plot_dln_est <- plots_all$west$totalWeightKg[["deltalognormal"]][["est"]]
+west_plot_dln_est_fe <- plots_all$west$totalWeightKg[["deltalognormal"]][["est_non_rf"]]
+west_plot_dln_om <- plots_all$west$totalWeightKg[["deltalognormal"]][["omega_s"]]
+west_plot_dln_eps <- plots_all$west$totalWeightKg[["deltalognormal"]][["epsilon_st"]]
+
+west_plots <- Filter(Negate(is.null), list(west_plot_dln_est, west_plot_dln_est_fe, 
+                                           west_plot_dln_om, west_plot_dln_eps)) 
+
+if (length(west_plots)) patchwork::wrap_plots(west_plots, ncol = 1)
+
+```
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+west_plot_dln_est <- plots_all$west$densityKgKm2[["deltalognormal"]][["est"]]
+west_plot_dln_est_fe <- plots_all$west$densityKgKm2[["deltalognormal"]][["est_non_rf"]]
+west_plot_dln_om <- plots_all$west$densityKgKm2[["deltalognormal"]][["omega_s"]]
+west_plot_dln_eps <- plots_all$west$densityKgKm2[["deltalognormal"]][["epsilon_st"]]
+
+west_plots <- Filter(Negate(is.null), list(west_plot_dln_est, west_plot_dln_est_fe, 
+                                           west_plot_dln_om, west_plot_dln_eps)) 
+
+if (length(west_plots)) patchwork::wrap_plots(west_plots, ncol = 1)
+
+```
+
+<br/>
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+west_plot_gm_est <- plots_all$west$totalWeightKg[["gamma"]][["est"]]
+west_plot_gm_est_fe <- plots_all$west$totalWeightKg[["gamma"]][["est_non_rf"]]
+west_plot_gm_om <- plots_all$west$totalWeightKg[["gamma"]][["omega_s"]]
+west_plot_gm_eps <- plots_all$west$totalWeightKg[["gamma"]][["epsilon_st"]]
+
+west_plots <- Filter(Negate(is.null), list(west_plot_gm_est, west_plot_gm_est_fe, 
+                                           west_plot_gm_om, west_plot_gm_eps)) 
+
+if (length(west_plots)) patchwork::wrap_plots(west_plots, ncol = 1)
+
+```
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+west_plot_gm_est <- plots_all$west$densityKgKm2[["gamma"]][["est"]]
+west_plot_gm_est_fe <- plots_all$west$densityKgKm2[["gamma"]][["est_non_rf"]]
+west_plot_gm_om <- plots_all$west$densityKgKm2[["gamma"]][["omega_s"]]
+west_plot_gm_eps <- plots_all$west$densityKgKm2[["gamma"]][["epsilon_st"]]
+
+west_plots <- Filter(Negate(is.null), list(west_plot_gm_est, west_plot_gm_est_fe, 
+                                           west_plot_gm_om, west_plot_gm_eps)) 
+
+if (length(west_plots)) patchwork::wrap_plots(west_plots, ncol = 1)
+
+```
+
+<br/>
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+west_plot_ln_est <- plots_all$west$totalWeightKg[["lognormal"]][["est"]]
+west_plot_ln_est_fe <- plots_all$west$totalWeightKg[["lognormal"]][["est_non_rf"]]
+west_plot_ln_om <- plots_all$west$totalWeightKg[["lognormal"]][["omega_s"]]
+west_plot_ln_eps <- plots_all$west$totalWeightKg[["lognormal"]][["epsilon_st"]]
+
+west_plots <- Filter(Negate(is.null), list(west_plot_ln_est, west_plot_ln_est_fe,
+                                           west_plot_ln_om, west_plot_ln_eps)) 
+
+if (length(west_plots)) patchwork::wrap_plots(west_plots, ncol = 1)
+
+```
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+west_plot_ln_est <- plots_all$west$densityKgKm2[["lognormal"]][["est"]]
+west_plot_ln_est_fe <- plots_all$west$densityKgKm2[["lognormal"]][["est_non_rf"]]
+west_plot_ln_om <- plots_all$west$densityKgKm2[["lognormal"]][["omega_s"]]
+west_plot_ln_eps <- plots_all$west$densityKgKm2[["lognormal"]][["epsilon_st"]]
+
+west_plots <- Filter(Negate(is.null), list(west_plot_ln_est, west_plot_ln_est_fe, 
+                                           west_plot_ln_om, west_plot_ln_eps)) 
+
+if (length(west_plots)) patchwork::wrap_plots(west_plots, ncol = 1)
+
+```
+
+<br/>
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+west_plot_dgmpl_est <- plots_all$west$totalWeightKg[["deltagammapoissonlink"]][["est"]]
+west_plot_dgmpl_est_fe <- plots_all$west$totalWeightKg[["deltagammapoissonlink"]][["est_non_rf"]]
+west_plot_dgmpl_om <- plots_all$west$totalWeightKg[["deltagammapoissonlink"]][["omega_s"]]
+west_plot_dgmpl_eps <- plots_all$west$totalWeightKg[["deltagammapoissonlink"]][["epsilon_st"]]
+
+west_plots <- Filter(Negate(is.null), list(west_plot_dgmpl_est, west_plot_dgmpl_est_fe, 
+                                           west_plot_dgmpl_om, west_plot_dgmpl_eps)) 
+
+if (length(west_plots)) patchwork::wrap_plots(west_plots, ncol = 1)
+
+```
+
+<br/>
+<br/>
+<br/>
+
+## 5.2. Eastern English Channel predictions
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+east_plot_tw_est <- plots_all$east$totalWeightKg[["tweedie"]][["est"]]
+east_plot_tw_est_fe <- plots_all$east$totalWeightKg[["tweedie"]][["est_non_rf"]]
+east_plot_tw_om <- plots_all$east$totalWeightKg[["tweedie"]][["omega_s"]]
+east_plot_tw_eps <- plots_all$east$totalWeightKg[["tweedie"]][["epsilon_st"]]
+
+east_plots <- Filter(Negate(is.null), list(east_plot_tw_est, east_plot_tw_est_fe, 
+                                           east_plot_tw_om, east_plot_tw_eps)) 
+
+if (length(east_plots)) patchwork::wrap_plots(east_plots, ncol = 1)
+
+```
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+east_plot_tw_est <- plots_all$east$densityKgKm2[["tweedie"]][["est"]]
+east_plot_tw_est_fe <- plots_all$east$densityKgKm2[["tweedie"]][["est_non_rf"]]
+east_plot_tw_om <- plots_all$east$densityKgKm2[["tweedie"]][["omega_s"]]
+east_plot_tw_eps <- plots_all$east$densityKgKm2[["tweedie"]][["epsilon_st"]]
+
+east_plots <- Filter(Negate(is.null), list(east_plot_tw_est, east_plot_tw_est_fe, 
+                                           east_plot_tw_om, east_plot_tw_eps)) 
+
+if (length(east_plots)) patchwork::wrap_plots(east_plots, ncol = 1)
+
+```
+
+<br/>
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+east_plot_dgm_est <- plots_all$east$totalWeightKg[["deltagamma"]][["est"]]
+east_plot_dgm_est_fe <- plots_all$east$totalWeightKg[["deltagamma"]][["est_non_rf"]]
+east_plot_dgm_om <- plots_all$east$totalWeightKg[["deltagamma"]][["omega_s"]]
+east_plot_dgm_eps <- plots_all$east$totalWeightKg[["deltagamma"]][["epsilon_st"]]
+
+east_plots <- Filter(Negate(is.null), list(east_plot_dgm_est, east_plot_dgm_est_fe, 
+                                           east_plot_dgm_om, east_plot_dgm_eps)) 
+
+if (length(east_plots)) patchwork::wrap_plots(east_plots, ncol = 1)
+
+```
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+east_plot_dgm_est <- plots_all$east$densityKgKm2[["deltagamma"]][["est"]]
+east_plot_dgm_est_fe <- plots_all$east$densityKgKm2[["deltagamma"]][["est_non_rf"]]
+east_plot_dgm_om <- plots_all$east$densityKgKm2[["deltagamma"]][["omega_s"]]
+east_plot_dgm_eps <- plots_all$east$densityKgKm2[["deltagamma"]][["epsilon_st"]]
+
+east_plots <- Filter(Negate(is.null), list(east_plot_dgm_est, east_plot_dgm_est_fe,
+                                           east_plot_dgm_om, east_plot_dgm_eps)) 
+
+if (length(east_plots)) patchwork::wrap_plots(east_plots, ncol = 1)
+
+```
+
+<br/>
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+east_plot_dln_est <- plots_all$east$totalWeightKg[["deltalognormal"]][["est"]]
+east_plot_dln_est_fe <- plots_all$east$totalWeightKg[["deltalognormal"]][["est_non_rf"]]
+east_plot_dln_om <- plots_all$east$totalWeightKg[["deltalognormal"]][["omega_s"]]
+east_plot_dln_eps <- plots_all$east$totalWeightKg[["deltalognormal"]][["epsilon_st"]]
+
+east_plots <- Filter(Negate(is.null), list(east_plot_dln_est, east_plot_dln_est_fe, 
+                                           east_plot_dln_om, east_plot_dln_eps)) 
+
+if (length(east_plots)) patchwork::wrap_plots(east_plots, ncol = 1)
+
+```
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+east_plot_dln_est <- plots_all$east$densityKgKm2[["deltalognormal"]][["est"]]
+east_plot_dln_est_fe <- plots_all$east$densityKgKm2[["deltalognormal"]][["est_non_rf"]]
+east_plot_dln_om <- plots_all$east$densityKgKm2[["deltalognormal"]][["omega_s"]]
+east_plot_dln_eps <- plots_all$east$densityKgKm2[["deltalognormal"]][["epsilon_st"]]
+
+east_plots <- Filter(Negate(is.null), list(east_plot_dln_est, east_plot_dln_est_fe, 
+                                           east_plot_dln_om, east_plot_dln_eps)) 
+
+if (length(east_plots)) patchwork::wrap_plots(east_plots, ncol = 1)
+
+```
+
+<br/>
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+east_plot_gm_est <- plots_all$east$totalWeightKg[["gamma"]][["est"]]
+east_plot_gm_est_fe <- plots_all$east$totalWeightKg[["gamma"]][["est_non_rf"]]
+east_plot_gm_om <- plots_all$east$totalWeightKg[["gamma"]][["omega_s"]]
+east_plot_gm_eps <- plots_all$east$totalWeightKg[["gamma"]][["epsilon_st"]]
+
+east_plots <- Filter(Negate(is.null), list(east_plot_gm_est, east_plot_gm_est_fe, 
+                                           east_plot_gm_om, east_plot_gm_eps)) 
+
+if (length(east_plots)) patchwork::wrap_plots(east_plots, ncol = 1)
+
+```
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+east_plot_gm_est <- plots_all$east$densityKgKm2[["gamma"]][["est"]]
+east_plot_gm_est_fe <- plots_all$east$densityKgKm2[["gamma"]][["est_non_rf"]]
+east_plot_gm_om <- plots_all$east$densityKgKm2[["gamma"]][["omega_s"]]
+east_plot_gm_eps <- plots_all$east$densityKgKm2[["gamma"]][["epsilon_st"]]
+
+east_plots <- Filter(Negate(is.null), list(east_plot_gm_est, east_plot_gm_est_fe, 
+                                           east_plot_gm_om, east_plot_gm_eps)) 
+
+if (length(east_plots)) patchwork::wrap_plots(east_plots, ncol = 1)
+
+```
+
+<br/>
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+east_plot_ln_est <- plots_all$east$totalWeightKg[["lognormal"]][["est"]]
+east_plot_ln_est_fe <- plots_all$east$totalWeightKg[["lognormal"]][["est_non_rf"]]
+east_plot_ln_om <- plots_all$east$totalWeightKg[["lognormal"]][["omega_s"]]
+east_plot_ln_eps <- plots_all$east$totalWeightKg[["lognormal"]][["epsilon_st"]]
+
+east_plots <- Filter(Negate(is.null), list(east_plot_ln_est, east_plot_ln_est_fe,
+                                           east_plot_ln_om, east_plot_ln_eps)) 
+
+if (length(east_plots)) patchwork::wrap_plots(east_plots, ncol = 1)
+
+```
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+east_plot_ln_est <- plots_all$east$densityKgKm2[["lognormal"]][["est"]]
+east_plot_ln_est_fe <- plots_all$east$densityKgKm2[["lognormal"]][["est_non_rf"]]
+east_plot_ln_om <- plots_all$east$densityKgKm2[["lognormal"]][["omega_s"]]
+east_plot_ln_eps <- plots_all$east$densityKgKm2[["lognormal"]][["epsilon_st"]]
+
+east_plots <- Filter(Negate(is.null), list(east_plot_ln_est, east_plot_ln_est_fe, 
+                                           east_plot_ln_om, east_plot_ln_eps)) 
+
+if (length(east_plots)) patchwork::wrap_plots(east_plots, ncol = 1)
+
+```
+
+<br/>
+
+```{r echo=FALSE, fig.height=20, fig.width=10, message=FALSE, warning=FALSE}
+
+east_plot_dgmpl_est <- plots_all$east$totalWeightKg[["deltagammapoissonlink"]][["est"]]
+east_plot_dgmpl_est_fe <- plots_all$east$totalWeightKg[["deltagammapoissonlink"]][["est_non_rf"]]
+east_plot_dgmpl_om <- plots_all$east$totalWeightKg[["deltagammapoissonlink"]][["omega_s"]]
+east_plot_dgmpl_eps <- plots_all$east$totalWeightKg[["deltagammapoissonlink"]][["epsilon_st"]]
+
+east_plots <- Filter(Negate(is.null), list(east_plot_dgmpl_est, east_plot_dgmpl_est_fe, 
+                                           east_plot_dgmpl_om, east_plot_dgmpl_eps)) 
+
+if (length(east_plots)) patchwork::wrap_plots(east_plots, ncol = 1)
+
+```
