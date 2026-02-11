@@ -26,6 +26,8 @@ compute_quantile_residuals <- function(sanity_output, region_name = "region", da
       # Delta models → 2 components, others → 1
       components <- if (grepl("^delta", family_name, ignore.case = TRUE)) 1:2 else 1
       
+      map_store <- list()
+      
       for (component_id in components) {
         
         # -------------------------------------------------------- #
@@ -62,24 +64,37 @@ compute_quantile_residuals <- function(sanity_output, region_name = "region", da
         # -------------------------------------------------------- #
         # Residual maps
         # -------------------------------------------------------- #
-        if (!all(c("lon", "lat", "year") %in% names(data_CGFS))) next
-        if (nrow(data_CGFS) != length(residuals_vec)) next
-        
-        map_df <- data.frame(lon = data_CGFS$lon,
-                             lat = data_CGFS$lat,
-                             year = data_CGFS$year,
-                             residuals = residuals_vec)
-        
-        p_map <- ggplot(map_df, aes(lon, lat, fill = residuals)) +
-          geom_point(color = "grey", size = 2.5, shape = 21) +
-          scale_fill_gradient2() +
-          facet_wrap(~ year, nrow=2) +
-          labs(x = "", y = "", fill = "Quantile residuals",
-            title = paste(region_name, response_name, family_name, component_lab, sep = " - ")) +
-          theme_bw()
-        
-        key <- paste(response_name, family_name, component_lab, sep = "_")
-        maps_long[[key]] <- p_map
+        if (nrow(data_CGFS) == length(residuals_vec)) {
+          
+          map_store[[component_lab]] <- data.frame(
+            lon = data_CGFS$lon,
+            lat = data_CGFS$lat,
+            year = data_CGFS$year,
+            component = component_lab,
+            residuals = residuals_vec
+          )
+        }
+        # -------------------------------------------------------- #
+        # Build one map per (response, family) with panels by component
+        # -------------------------------------------------------- #
+        if (length(map_store) > 0) {
+          
+          map_df_all <- do.call(rbind, map_store)
+          
+          p_map <- ggplot(map_df_all, aes(lon, lat, fill = residuals)) +
+            geom_point(color = "grey", size = 2.5, shape = 21) +
+            scale_fill_gradient2() +
+            facet_grid(component ~ year) +  
+            labs(
+              x = "", y = "",
+              fill = "Quantile residuals",
+              title = paste(region_name, response_name, family_name, sep = " - ")
+            ) +
+            theme_bw()
+          
+          key <- paste(response_name, family_name, "map_by_component", sep = "_")
+          maps_long[[key]] <- p_map
+        }
         
       }
     }
@@ -178,4 +193,5 @@ if (isTRUE(West_English_Channel)) {
   )
 }
 
-
+residuals_by_region$east$maps$densityKgKm2_deltagamma_map_by_component
+View(residuals_by_region$east$residuals_df)
