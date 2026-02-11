@@ -21,8 +21,8 @@ save_model_diagnostics <- function(sp_scientific,
   saveRDS(residuals_by_region, file.path(sp_dir, "residuals_by_region.rds"))
   saveRDS(dharma_by_region, file.path(sp_dir, "dharma_by_region.rds"))
   saveRDS(AIC_by_region, file.path(sp_dir, "AIC_by_region.rds"))
-  saveRDS(cross_validation_by_region, file.path(sp_dir, "randomCV_by_region.rds"))
-  saveRDS(cross_validation_by_region, file.path(sp_dir, "blockedCV_by_region.rds"))
+  saveRDS(randomCV_by_region, file.path(sp_dir, "randomCV_by_region.rds"))
+  saveRDS(blockedCV_by_region, file.path(sp_dir, "blockedCV_by_region.rds"))
   
 }
 
