@@ -1,121 +1,137 @@
 
+# ==============================================================================#
+# Predict all valid models by region, produce maps 
+# ==============================================================================#
+
+# Load sanity by region object
 valid_models_predict <- readRDS(here("05_OUTPUTS", "model_diagnostics", 
                                      paste0("model_diagnostics_", sp_safe),                          
                                      "sanity_by_region.rds"))
 
+# Example access : 
+# valid_models_predict <- readRDS("~/EBESCO/SDM/05_OUTPUTS/model_diagnostics/model_diagnostics_Trachurus_trachurus/sanity_by_region.rds")
 
-
+# ------------------------------------------------------------------------------#
+# Function used to extract only valid models from the diagnostics object
+# ------------------------------------------------------------------------------#
 
 get_valid_models <- function(valid_models_predict) {
+  # Initialize an empty list with one element per region
   res <- setNames(vector("list", length(valid_models_predict)),
                   names(valid_models_predict))
   
+  # Loop over regions
   for (region in names(valid_models_predict)) {
     region_list <- valid_models_predict[[region]]
-    if (is.null(region_list) || length(region_list) == 0) next
     
+    if (is.null(region_list)) next    # Skip empty or NULL regions
+    
+    # Loop over responses within a region & extract valid models for this response
     for (response in names(region_list)) {
       models_valid <- region_list[[response]]$models_valid
       
-      if (!is.null(models_valid) && length(models_valid) > 0) {
+      # Store only non-empty valid model lists
+      if (!is.null(models_valid)) {
         res[[region]][[response]] <- models_valid
       }
     }
   }
-  
+  # Remove regions that ended up empty
   res <- res[vapply(res, length, integer(1)) > 0]
-  
-  res
+  return(res)
 }
 
 
-
-valid_models_only <- get_valid_models(valid_models_predict)
-
+# ------------------------------------------------------------------------------#
+# Prediction grids by region
+# ------------------------------------------------------------------------------#
 grids_by_region <- list(east = grid_by_region$east$grid_pred,
                         west = grid_by_region$west$grid_pred)
 
 
-predict_all_valid_models <- function(valid_models_predict, grids_by_region) {
+# ------------------------------------------------------------------------------#
+# Predict all valid models on their corresponding regional grids
+# ------------------------------------------------------------------------------#
+
+predict_all_valid_models <- function(valid_models_only, grids_by_region) {
   
+  # Build the list of valid models only
   valid_models_only <- get_valid_models(valid_models_predict)
-  
-  preds <- list()
+  predictions_list <- list()
   
   for (region in names(valid_models_only)) {
     
     grid_region <- grids_by_region[[region]]
-    if (is.null(grid_region)) stop("Pas de grid fournie pour la région : ", region)
     
     for (response in names(valid_models_only[[region]])) {
       
       for (model_name in names(valid_models_only[[region]][[response]])) {
         
-        mod <- valid_models_only[[region]][[response]][[model_name]]
+        pred_model <- valid_models_only[[region]][[response]][[model_name]]
         
-        preds[[region]][[response]][[model_name]] <- predict(
-          mod,
-          newdata = grid_region
+        predictions_list[[region]][[response]][[model_name]] <- predict(
+          pred_model,
+          newdata = grid_region,
+          type = "response",
+          model = NA
         )
       }
     }
   }
   
-  return(preds)
+  return(predictions_list)
 }
 
+# Run predictions for all regions, responses, and valid models
+all_predictions_by_region <- predict_all_valid_models(valid_models_only, grids_by_region)
 
-preds_all <- predict_all_valid_models(valid_models_predict, grids_by_region)
-  
+# ------------------------------------------------------------------------------#
+# Build land polygons and plotting bounds per region 
+# ------------------------------------------------------------------------------#
 
-get_fill_expr <- function(data, base) {
-  c1 <- paste0(base, "1")
-  c2 <- paste0(base, "2")
+get_land_region <- function(grid_pred) {
   
-  if (all(c(c1, c2) %in% names(data))) {
-    parse_expr(paste0(c1, " + ", c2))
-  } else if (base %in% names(data)) {
-    sym(base)
-  } 
-}
-
-plot_pred_map <- function(data, grid_pred, sp_scientific, response, fill_base, subtitle) {
-  
-  # conversion km -> degrés
+  # Convert resolution from km to degrees
   res_deg_lat <- res_km / 111.32
   res_deg_lon <- res_km / (111.32 * cos(50*pi/180))
   
-  # limites avec buffer
-  xmin_plot <- range(grid_pred$lon, na.rm = TRUE)[1] - res_deg_lon
-  xmax_plot <- range(grid_pred$lon, na.rm = TRUE)[2] + res_deg_lon
-  ymin_plot <- range(grid_pred$lat, na.rm = TRUE)[1] - res_deg_lat
-  ymax_plot <- range(grid_pred$lat, na.rm = TRUE)[2] + res_deg_lat
+  # Define plot limits with a one-cell buffer
+  xmin_plot <- range(grid_pred$lon)[1] - res_deg_lon
+  xmax_plot <- range(grid_pred$lon)[2] + res_deg_lon
+  ymin_plot <- range(grid_pred$lat)[1] - res_deg_lat
+  ymax_plot <- range(grid_pred$lat)[2] + res_deg_lat
   
   land <- ne_download(scale = "large", type = "land", category = "physical", returnclass = "sf") %>%
     st_transform(4326) %>%
     st_crop(xmin = xmin_plot, ymin = ymin_plot, xmax = xmax_plot, ymax = ymax_plot)
   
-  fill_expr <- get_fill_expr(data, fill_base)
+  list(land = land,
+       xlim = c(xmin_plot, xmax_plot),
+       ylim = c(ymin_plot, ymax_plot))
   
-  legend_title <- ifelse(response == "totalWeightKg", "Biomasse (kg)", "Densité de \nbiomasse \n(kg/km²)")
+}
+
+land_by_region <- list(east = get_land_region(grids_by_region$east),
+                       west = get_land_region(grids_by_region$west))
+
+
+# ------------------------------------------------------------------------------#
+# Plot prediction maps for a given variable and model
+# ------------------------------------------------------------------------------#
+
+plot_pred_map <- function(data, land_obj, response, fill_base, subtitle) {
   
+  legend_title <- ifelse(response == "totalWeightKg",
+                         "Biomass (kg)",
+                         "Density of \nbiomass \n(kg/km²)")
   
-  if (fill_base == "est") {
-    p <- ggplot(data, aes(lon, lat, fill = exp(!!fill_expr))) +
-      geom_raster()
-  } else {
-    p <- ggplot(data, aes(lon, lat, fill = !!fill_expr)) +
-      geom_raster()
-  }
-  
-  p <- p +
-    geom_sf(data = land, fill = "grey80", inherit.aes = FALSE, color = "grey80") +
+  p <- ggplot(data, aes(lon, lat, fill = .data[[fill_base]])) +
+    geom_raster() +  
+    geom_sf(data = land_obj$land, fill = "grey80", inherit.aes = FALSE, color = "grey80") +
     scale_y_continuous(breaks = pretty_breaks(n = 3)) +
     scale_x_continuous(breaks = pretty_breaks(n = 4)) +
-    coord_sf(xlim = c(xmin_plot, xmax_plot),
-             ylim = c(ymin_plot, ymax_plot),
-             expand = FALSE) +
-    facet_wrap(~year, nrow = 2)+
+    coord_sf(xlim = land_obj$xlim, ylim = land_obj$ylim, expand = FALSE) +
+    facet_wrap(~year, nrow = 2) +
     theme(panel.grid = element_blank(),
           panel.background = element_rect(fill = "white", colour = NA),
           panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
@@ -123,62 +139,68 @@ plot_pred_map <- function(data, grid_pred, sp_scientific, response, fill_base, s
           strip.text = element_text(color = "white", face = "bold")) +
     labs(x = "", y = "", subtitle = subtitle)
   
-  if (fill_base == "est" && !is.null(legend_title)) {
-    p <- p + labs(fill = legend_title)
-  }
+  if (fill_base == "est") p <- p + labs(fill = legend_title)
   
   if (fill_base %in% c("est", "est_non_rf")) {
-    p <- p +
-      scale_fill_distiller(trans = "log10", palette = "RdYlBu",
-        labels = label_number(drop0trailing = TRUE))
+    p <- p + scale_fill_distiller(trans = "log10", palette = "RdYlBu",
+                                  labels = label_number(drop0trailing = TRUE))
   } else if (fill_base %in% c("omega_s", "epsilon_st")) {
-    p <- p +
-      scale_fill_gradient2(low = muted("blue"), mid = "white", high = muted("red"), midpoint = 0,
-        labels = scales::label_number(drop0trailing = TRUE))
+    p <- p + scale_fill_gradient2(midpoint = 0,
+                                  labels = label_number(drop0trailing = TRUE))
   } 
   return(p)
   
 }
 
 
+# ------------------------------------------------------------------------------#
+# Variables to plot
+# ------------------------------------------------------------------------------#
 
-fills_to_plot <- c("est", "est_non_rf", "omega_s", "epsilon_st")
+delta_models <- c("deltagamma", "deltalognormal", "deltagammapoissonlink")
+# one_comp_models <- c("tweedie", "gamma", "lognormal")  
 
 plots_all <- list()
 
-for (region in names(preds_all)) {
+for (region in names(all_predictions_by_region)) {
   
-  grid_pred <- grids_by_region[[region]]
+  land_obj <- land_by_region[[region]]
   
-  for (response in names(preds_all[[region]])) {
-    for (model_name in names(preds_all[[region]][[response]])) {
+  for (response in names(all_predictions_by_region[[region]])) {
+    
+    for (model_name in names(all_predictions_by_region[[region]][[response]])) {
       
-      pred <- preds_all[[region]][[response]][[model_name]]
-      if (!inherits(pred, "data.frame")) pred <- as.data.frame(pred)
+      predictions <- all_predictions_by_region[[region]][[response]][[model_name]]
+      predictions <- as.data.frame(predictions)
       
+      # choose which variables to plot depending on the model type
+      if (model_name %in% delta_models) {
+        fills_to_plot <- "est"
+      } else {
+        fills_to_plot <- c("est", "est_non_rf", "omega_s", "epsilon_st")
+      }
+
       for (fill_base in fills_to_plot) {
         
-        ok <- (fill_base %in% names(pred)) ||
-          all(paste0(fill_base, c("1","2")) %in% names(pred))
-        if (!ok) next
-        
         p <- plot_pred_map(
-          data = pred,
-          grid_pred = grid_pred,
-          sp_scientific = sp_scientific,  
+          data = predictions,
+          land_obj = land_obj,
           response = response,
           fill_base = fill_base,
-          subtitle = paste(region, " - ", response, " - ", model_name, " - ", fill_base)
+          subtitle = paste(region, response, model_name, fill_base, sep = " - ")
         )
         
         plots_all[[region]][[response]][[model_name]][[fill_base]] <- p
-        
       }
     }
   }
 }
 
 
+
+# ------------------------------------------------------------------------------#
+# Save all plots as a single RDS object
+# ------------------------------------------------------------------------------#
 
 out_rds <- here::here(
   "05_OUTPUTS", "model_diagnostics",
@@ -191,5 +213,10 @@ dir.create(dirname(out_rds), showWarnings = FALSE, recursive = TRUE)
 saveRDS(plots_all, out_rds)
 
 
-# plots_all$east$densityKgKm2$tweedie$est_non_rf
+
+# ------------------------------------------------------------------------------#
+# Example access:
+plots_all$east$densityKgKm2$deltagamma$est
+plots_all$east$densityKgKm2$tweedie$omega_s
 # plots_all$east$totalWeightKg$tweedie$omega_s
+# ------------------------------------------------------------------------------#
