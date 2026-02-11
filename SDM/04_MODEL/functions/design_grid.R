@@ -5,33 +5,24 @@
 
 design_grids <- function(data_CGFS, region_name = "region") {
 
-
+  
   # Use the shapefile of the English Channel to define the grid extent
   if (region_name == "east"){
-    EC_shp <- vect(here("01_DATA", "shapefiles", "split_English_Channel", "east_English_Channel.shp"))
-    mask_shp <- EC_shp
-  } 
+    EC_shp <- vect(here("01_DATA", "shapefiles", "split_English_Channel", 
+                        "east_English_Channel.shp"))
+    } 
   
   else if (region_name == "west"){
-    EC_shp <- vect(here("01_DATA", "shapefiles", "split_English_Channel", "west_English_Channel.shp"))
-    CS_shp <- vect(here("01_DATA", "shapefiles", "Celtic_Sea", "Celtic_Sea.shp"))
-    
-    # Keep only the Celtic Sea : lat in (48.5 ; 50) & lon < -5.9
-    cs_clip_ext <- ext(-6, -4.138, 48.5, 50.0) %>% as.polygons(crs = crs(CS_shp))
-    CS_part <- intersect(CS_shp, cs_clip_ext)
-    
-    # Join West English Channel + clipped Celtic Sea part
-    mask_shp <- union(EC_shp, CS_part)
-    
+    EC_shp <- vect(here("01_DATA", "shapefiles", "Western_English_Channel_extension", 
+                        "Western_English_Channel_extension.shp"))
   }
-
 
   # ------------------------------------------------------------------------------#
   #### Build UTM grid, clip to polygon, compute area by cell ####
   # ------------------------------------------------------------------------------#
 
   # Extract the spatial extent of the EC shapefile
-  EC_ext <- ext(mask_shp)
+  EC_ext <- ext(EC_shp)
 
   # Convert the grid resolution to degrees only to build and mask the raster using the shapefile.
   # Then convert back to kilometers because the model requires metric coordinates.
@@ -42,13 +33,13 @@ design_grids <- function(data_CGFS, region_name = "region") {
   # Create a regular raster grid with given resolution
   grid_rast <- rast(extent = EC_ext,
                     resolution = c(res_deg_lon, res_deg_lat),
-                    crs = crs(mask_shp))
+                    crs = crs(EC_shp))
 
   # Add dummy values (e.g., 1) to all cells so that mask() can work
   grid_rast[] <- 1
 
   # Keep only cells located inside the English Channel polygon
-  grid_rast_EC <- mask(grid_rast, mask_shp)
+  grid_rast_EC <- mask(grid_rast, EC_shp)
 
   # Extract the coordinates of valid cell centers (only inside EC)
   cells_in_EC <- which(!is.na(grid_rast_EC[]))
@@ -101,7 +92,6 @@ design_grids <- function(data_CGFS, region_name = "region") {
               plot_grid = plot_grid))
 
 }
-
 
 # ------------------------------------------------------------------------------#
 #### Build grids by region depending on user-defined flags ####
