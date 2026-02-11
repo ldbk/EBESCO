@@ -1,21 +1,24 @@
 
+
+
 compute_plot_Moran <- function(data_CGFS, region) {
   
   resultats_moran <- data_CGFS %>%
     group_by(year) %>%
     group_modify(~{
+      # compute euclidian distances between all points per year 
       dists <- as.matrix(dist(.x[, c("lat", "lon")]))
       inv_dists <- 1 / dists
       diag(inv_dists) <- 0
-      moran <- Moran.I(.x$densityKgKm2, inv_dists)
+      moran <- Moran.I(.x$densityKgKm2, inv_dists, scaled = TRUE)
       data.frame(observed = moran$observed,
                  expected = moran$expected,
                  sd = moran$sd,
                  p_value = moran$p.value)
     }) %>%
     ungroup() %>%
-    mutate(ymin = observed - sd,
-           ymax = observed + sd,
+    mutate(ymin = expected - sd,
+           ymax = expected + sd,
            ymin95 = expected - 1.96 * sd,
            ymax95 = expected + 1.96 * sd,
            signif = case_when(p_value < 0.001 ~ "***",

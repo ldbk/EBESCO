@@ -2,7 +2,7 @@
 
 region_validity <- readRDS(here("01_DATA/species_region_validity.rds"))
 species_list <- sort(unique(region_validity$scientificName))
-species_list <- species_list[1:8]
+# species_list <- species_list[1:8]
 source(here("04_MODEL/functions/compute_plot_Moran.R"))
 source(here("04_MODEL/functions/compute_plot_residuals_withoutRF.R"))
 
