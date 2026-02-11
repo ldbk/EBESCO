@@ -1,9 +1,46 @@
 # ============================================================================== #
 #### FIT CANDIDATE MODELS ####
-# ============================================================================== #
+# ============================================================================== 
 
 # Function that fits candidate models by region
 fit_candidate_models <- function(data_CGFS, bspde, region_name = "region") {
+  
+  
+  # Specific case : probability of presence = 1 
+  if (sp_scientific == "Trachurus trachurus" && region_name == "west") {
+    # Define the candidate families for the different response variables 
+    families_by_response <- list(
+      # Candidate distributions for total biomass
+      totalWeightKg = list(
+        lognormal = lognormal(link = "log"),
+        gamma = Gamma(link = "log")
+      ),
+      # Candidate distributions for biomass density
+      densityKgKm2 = list(
+        lognormal = lognormal(link = "log"),
+        gamma = Gamma(link = "log")
+      )
+    )
+    
+  } else {
+    # Define the candidate families for the different response variables 
+    families_by_response <- list(
+      # Candidate distributions for total biomass
+      totalWeightKg = list(
+        tweedie = sdmTMB::tweedie(link = "log"),
+        deltagamma = delta_gamma(link1 = "logit", link2 = "log"),
+        deltalognormal = delta_lognormal(link1 = "logit", link2 = "log"),
+        deltagammapoissonlink = delta_gamma(type = "poisson-link")
+      ),
+      # Candidate distributions for biomass density
+      densityKgKm2 = list(
+        tweedie = sdmTMB::tweedie(link = "log"),
+        deltagamma = delta_gamma(link1 = "logit", link2 = "log"),
+        deltalognormal = delta_lognormal(link1 = "logit", link2 = "log")
+      )
+    )
+  }
+  
   
   fitted_candidate_models <- list()
   
