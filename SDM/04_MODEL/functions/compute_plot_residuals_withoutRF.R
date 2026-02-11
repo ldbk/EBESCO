@@ -4,8 +4,7 @@
 
 residuals_withoutRF <- function(data_CGFS, region = "region") {
   
-  if(sp_scientific == "Trachurus trachurus"){
-    
+  if (sp_scientific == "Trachurus trachurus" && region == "west") {
     model_withoutRF <- sdmTMB(data = data_CGFS,
                               formula = densityKgKm2 ~ 1,
                               family = Gamma(link = "log"), 
@@ -13,7 +12,7 @@ residuals_withoutRF <- function(data_CGFS, region = "region") {
                               time = NULL, 
                               spatiotemporal = "off")
   } else {
-    model_withoutRF <- sdmTMB(data = data_CGFS_east,
+    model_withoutRF <- sdmTMB(data = data_CGFS,
                               formula = densityKgKm2 ~ 1,
                               family = tweedie(link = "log"), 
                               spatial = "off", 
@@ -23,7 +22,7 @@ residuals_withoutRF <- function(data_CGFS, region = "region") {
   
   resids_withoutRF <- residuals(model_withoutRF, type = "mle-mvn")
   resids_withoutRF <- tibble(residuals = resids_withoutRF)
-  resids_for_plot <- bind_cols(data_CGFS_east, resids_withoutRF)
+  resids_for_plot <- bind_cols(data_CGFS, resids_withoutRF)
 
   # resids_for_plot <- resids_for_plot %>%
   #   group_by(year) %>%
@@ -34,7 +33,7 @@ residuals_withoutRF <- function(data_CGFS, region = "region") {
   ggplot(resids_for_plot, aes(lon, lat, fill = residuals)) +
     geom_point(color = "grey", size = 2.5, shape = 21) +
     scale_fill_gradient2(low = "red", high = "blue")+
-  facet_wrap(~ year) +
+    facet_wrap(~ year) +
     labs(x = "", y = "", fill = "Quantile residuals",
          title = bquote(italic(.(sp_scientific)) ~ " - " ~ .(region)))+
     theme_bw()
