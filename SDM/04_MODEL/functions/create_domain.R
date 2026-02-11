@@ -38,6 +38,38 @@ English_Channel <- SeaAreas[SeaAreas$NAME == "English Channel", ]
 # writeVector(Celtic_Sea, here("01_DATA/shapefiles/Celtic_Sea/Celtic_Sea.shp"))
 
 
+
+# ------------------------------------------------------------------------------#
+#### West ENGLISH CHANNEL EXTENSION #### 
+# ------------------------------------------------------------------------------#
+
+EC_shp <- vect(here("01_DATA", "shapefiles", "split_English_Channel", "west_English_Channel.shp"))
+CS_shp <- vect(here("01_DATA", "shapefiles", "Celtic_Sea", "Celtic_Sea.shp"))
+
+# Keep only the Celtic Sea : lat in (48.5 ; 50) & lon < -5.9
+cs_clip_ext <- ext(-6, -4.138, 48.5, 50.03) %>% as.polygons(crs = crs(CS_shp))
+CS_part <- intersect(CS_shp, cs_clip_ext)
+
+# Join West English Channel + clipped Celtic Sea part
+mask_shp <- union(EC_shp, CS_part)
+
+# remove internal barriers between english channel and celtic sea 
+westEC_extension <- aggregate(mask_shp)
+
+# writeVector(westEC_extension, 
+#             here("01_DATA/shapefiles/Western_English_Channel_extension/Western_English_Channel_extension.shp"))
+
+
+# Join West English Channel extended + East EC
+mask_shp <- union(EC_shp, westEC_extension)
+
+# remove internal barriers 
+EC_extension <- aggregate(mask_shp)
+
+writeVector(EC_extension, 
+            here("01_DATA/shapefiles/English_Channel_extension/English_Channel_extension.shp"))
+
+
 # ------------------------------------------------------------------------------#
 #### BAIE DE SEINE SHAPEFILE #### 
 # ------------------------------------------------------------------------------#
