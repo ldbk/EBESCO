@@ -147,7 +147,7 @@ if (isTRUE(West_English_Channel)) {
 
 if (isTRUE(East_English_Channel)) {
   
-  conv_summary_east <- imap_dfr(blockedCV_by_region$east$cv_outputs,
+  blockedCV_summary_east <- imap_dfr(blockedCV_by_region$east$cv_outputs,
                                 function(resp_list, response) {
                                   imap_dfr(resp_list, function(cv, family) {
                                     tibble(response = response,
@@ -164,7 +164,7 @@ if (isTRUE(East_English_Channel)) {
 
 if (isTRUE(West_English_Channel)) {
   
-  conv_summary_west <- imap_dfr(blockedCV_by_region$west$cv_outputs,
+  blockedCV_summary_west <- imap_dfr(blockedCV_by_region$west$cv_outputs,
                                 function(resp_list, response) {
                                   imap_dfr(resp_list, function(cv, family) {
                                     tibble(response = response,
