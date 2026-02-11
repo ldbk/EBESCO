@@ -23,7 +23,7 @@ editor_options:
 sp <- params$sp_scientific
 
 rmarkdown::render(
-  input = here("02_EXPLORE_DATA/est_ouest/CGFS_est_ouest_exploration_sp_scientific.Rmd"),
+  input = here("02_EXPLORE_DATA/CGFS_est_ouest_exploration_sp_scientific.Rmd"),
   params = list(sp_scientific = sp),
   output_file = paste0("CGFS_est_ouest_exploration_", gsub(" ", "_", sp), ".html"))
 
@@ -513,29 +513,35 @@ sp_data_CGFS_density %>%
 
 ```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
 
-source(here('02_EXPLORE_DATA/plot_family_distrib.R'))
+source(here('04_MODEL/functions/simulate_plot_distribution.R'))
 
-p_density_west <- compute_plot_distr("west", sp_data_CGFS_density, "densityKgKm2")
-p_weight_west <- compute_plot_distr("west", sp_data_CGFS_density, "totalWeightKg")
+if (isTRUE(West_English_Channel)) {
+plot_dist_west_biomass <- sim_plot_distrib(data_CGFS_west, "west", data_CGFS_west$totalWeightKg)
+plot_dist_west_density <- sim_plot_distrib(data_CGFS_west, "west", data_CGFS_west$densityKgKm2)
+}
 
-(p_density_west$plot_gamma_lognormal | p_weight_west$plot_gamma_lognormal) /
-(p_density_west$plot_tweedie | p_weight_west$plot_tweedie)
+plot_dist_west_biomass
 
 ```
+```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+plot_dist_west_density
+```
 <br>
-<br>
-\vspace{2cm}
 
 ```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
 
-source(here('02_EXPLORE_DATA/plot_family_distrib.R'))
+source(here('04_MODEL/functions/simulate_plot_distribution.R'))
 
-p_density_east <- compute_plot_distr("east", sp_data_CGFS_density, "densityKgKm2")
-p_weight_east <- compute_plot_distr("east", sp_data_CGFS_density, "totalWeightKg")
+if (isTRUE(East_English_Channel)) {
+plot_dist_east_biomass <- sim_plot_distrib(data_CGFS_east, "east", data_CGFS_east$totalWeightKg)
+plot_dist_east_density <- sim_plot_distrib(data_CGFS_east, "east", data_CGFS_east$densityKgKm2)
+}
 
-(p_density_east$plot_gamma_lognormal | p_weight_east$plot_gamma_lognormal) /
-(p_density_east$plot_tweedie | p_weight_east$plot_tweedie)
+plot_dist_east_biomass
 
+```
+```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+plot_dist_east_density
 ```
 <br>
 <br>
