@@ -37,8 +37,8 @@ source(here('04_MODEL/packages/packages.R'))
 # sp_scientific <- "Pollachius pollachius"       # Pollack / Lieu jaune
 # sp_scientific <- "Squalus acanthias"           # Spiny dogfish / Aiguillat commun
 # sp_scientific <- "Trachurus trachurus"         # Atlantic horse mackerel / Chinchard commun
-# sp_scientific <- "Zeus faber"                  # John Dory / Saint-Pierre
-sp_scientific <- "Clupea harengus"             # Atlantic herring / Hareng de l’Atlantique
+sp_scientific <- "Zeus faber"                  # John Dory / Saint-Pierre
+# sp_scientific <- "Clupea harengus"             # Atlantic herring / Hareng de l’Atlantique
 # sp_scientific <- "Solea solea"                 # Common sole / Sole commune
 
 
@@ -56,7 +56,6 @@ East_English_Channel = isTRUE(region_validity_prop_presence$east[1])
 # ------------------------------------------------------------------------------#
 
 source(here('03_TRANSFORM_DATA/transform_data.R'))
-
 
 # ------------------------------------------------------------------------------#
 ####  COMPUTE AND PLOT MORAN's INDEX = SPATIAL AUTOCORRELATION  #### 
@@ -86,27 +85,6 @@ responses <- c("totalWeightKg", "densityKgKm2")
 
 # Fixed-effects
 fixed_effect <- "1"
-
-# Define the candidate families for the different response variables 
-families_by_response <- list(
-  # Candidate distributions for total biomass
-  totalWeightKg = list(
-    tweedie = sdmTMB::tweedie(link = "log"),
-    deltagamma = delta_gamma(link1 = "logit", link2 = "log"),
-    deltalognormal = delta_lognormal(link1 = "logit", link2 = "log"),
-    deltagammapoissonlink = delta_gamma(type = "poisson-link")#, 
-    # lognormal = lognormal(link = "log"),
-    # gamma = Gamma(link = "log")
-  ),
-  # Candidate distributions for biomass density
-  densityKgKm2 = list(
-    tweedie = sdmTMB::tweedie(link = "log"),
-    deltagamma = delta_gamma(link1 = "logit", link2 = "log"),
-    deltalognormal = delta_lognormal(link1 = "logit", link2 = "log")#,
-    # lognormal = lognormal(link = "log"),
-    # gamma = Gamma(link = "log")
-  )
-)
 
 source(here("04_MODEL/functions/fit_candidate_models.R"))
 
@@ -192,6 +170,13 @@ source(here('04_MODEL/functions/design_grid.R'))
 # ------------------------------------------------------------------------------#
 
 source(here("04_MODEL/functions/predict_plot_models_valid.R"))
+
+
+# ------------------------------------------------------------------------------#
+####  SIMULATE & COMPUTE, PLOT COEFFICIENT OF VARIATION ####
+# ------------------------------------------------------------------------------#
+
+source(here("04_MODEL/functions/simulate_compute_plot_coeff_variation.R"))
 
 
 # ------------------------------------------------------------------------------#
