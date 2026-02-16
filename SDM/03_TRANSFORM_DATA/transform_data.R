@@ -186,21 +186,20 @@
                                    units = "km")                 # UTM units
   
   
-  data_CGFS_east <- data_CGFS_crs %>% filter(gear == "GOV 36/47")
-  data_CGFS_west <- data_CGFS_crs %>% filter(gear == "GOV 36/49")
-  
-  
   # data_test_model <- data_CGFS_crs %>% 
   #   dplyr::select(year, X, Y, lat, lon, gear, depth, substrate, presence_absence, densityKgKm2, totalWeightKg, sweptAreaKm2) %>%
   #   mutate(year = factor(year)) %>%
   #   mutate(gear = factor(gear)) %>%
   #   mutate(substrate = factor(substrate))
   
-  data_CGFS_east <- data_CGFS_east %>% 
+  
+  data_CGFS_east <- data_CGFS_crs %>% 
+    filter(gear == "GOV 36/47") %>%
     dplyr::select(year, X, Y, lat, lon, presence_absence, densityKgKm2, totalWeightKg, sweptAreaKm2) %>%
     mutate(year = factor(year)) 
   
-  data_CGFS_west <- data_CGFS_west %>% 
+  data_CGFS_west <- data_CGFS_crs %>% 
+    filter(gear == "GOV 36/49") %>%
     dplyr::select(year, X, Y, lat, lon, presence_absence, densityKgKm2, totalWeightKg, sweptAreaKm2) %>%
     mutate(year = factor(year)) 
   

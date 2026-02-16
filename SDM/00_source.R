@@ -1,29 +1,21 @@
 
 # ------------------------------------------------------------------------------#
 # ------------------------------------------------------------------------------#
-
 # SCRIPT TO RUN SPECIES DISTRIBUTION MODELS
-
 # ------------------------------------------------------------------------------#
 # ------------------------------------------------------------------------------#
-
-
 rm(list=ls())
 
 # ------------------------------------------------------------------------------#
 ####  LOAD PACKAGES  #### 
 # ------------------------------------------------------------------------------#
-
-library(here)
-source(here('04_MODEL/packages/packages.R'))
+source(here::here('04_MODEL/packages/packages.R'))
 
 # ------------------------------------------------------------------------------#
 ####  DEFINE PARAMETERS  #### 
 # ------------------------------------------------------------------------------#
-
 ## Define species
 # ----------------#
-
 # sp_scientific <- "Capros aper"                 # Boarfish / Sanglier
 # sp_scientific <- "Chelidonichthys cuculus"     # Red gurnard / Grondin rouge
 # sp_scientific <- "Chelidonichthys lucerna"     # Tub gurnard / Grondin perlon
@@ -37,158 +29,204 @@ source(here('04_MODEL/packages/packages.R'))
 # sp_scientific <- "Pollachius pollachius"       # Pollack / Lieu jaune
 # sp_scientific <- "Squalus acanthias"           # Spiny dogfish / Aiguillat commun
 # sp_scientific <- "Trachurus trachurus"         # Atlantic horse mackerel / Chinchard commun
-sp_scientific <- "Zeus faber"                  # John Dory / Saint-Pierre
+# sp_scientific <- "Zeus faber"                  # John Dory / Saint-Pierre
 # sp_scientific <- "Clupea harengus"             # Atlantic herring / Hareng de l’Atlantique
-# sp_scientific <- "Solea solea"                 # Common sole / Sole commune
+sp_scientific <- "Solea solea"                 # Common sole / Sole commune
 
 
-## Define domain
-# ----------------#
+## Define study refions for the species 
+# ----------------------------------------#
+species_criteria_region <- readRDS(here::here("01_DATA/species_criteria_region.rds"))%>%
+  dplyr::filter(species == sp_scientific)
 
-region_validity_prop_presence <- readRDS(here("01_DATA/species_region_validity.rds"))%>%
-  filter(scientificName == sp_scientific)
-
-West_English_Channel = isTRUE(region_validity_prop_presence$west[1])
-East_English_Channel = isTRUE(region_validity_prop_presence$east[1])
+West_English_Channel = isTRUE(species_criteria_region$west_region)
+East_English_Channel = isTRUE(species_criteria_region$east_region)
 
 # ------------------------------------------------------------------------------#
 ####  LOAD AND TRANSFORM DATA  #### 
 # ------------------------------------------------------------------------------#
-
-source(here('03_TRANSFORM_DATA/transform_data.R'))
+source(here::here('03_TRANSFORM_DATA/transform_data.R'))
 
 # ------------------------------------------------------------------------------#
 ####  COMPUTE AND PLOT MORAN's INDEX = SPATIAL AUTOCORRELATION  #### 
 # ------------------------------------------------------------------------------#
-
-source(here('04_MODEL/functions/compute_plot_Moran.R'))
+source(here::here('04_MODEL/functions/compute_plot_Moran.R'))
 
 # ------------------------------------------------------------------------------#
 ####  PLOT RESIDUALS OF MODEL FITTED WITHOUT RANDOM FIELD #### 
 # ------------------------------------------------------------------------------#
-
-source(here('04_MODEL/functions/compute_plot_residuals_withoutRF.R'))
+source(here::here('04_MODEL/functions/compute_plot_residuals_withoutRF.R'))
 
 # ------------------------------------------------------------------------------#
 ####  CREATE THE MESH  #### 
 # ------------------------------------------------------------------------------#
+source(here::here('04_MODEL/functions/create_mesh.R'))
 
-source(here('04_MODEL/functions/create_mesh.R'))
+mesh_by_region <- list()
+# If West_English_Channel is TRUE, build the west mesh
+if (isTRUE(West_English_Channel)) {
+  mesh_by_region$west <- create_mesh_by_region(region_name = "west")
+}
+# If East_English_Channel is TRUE, build the east mesh
+if (isTRUE(East_English_Channel)) {
+  mesh_by_region$east <- create_mesh_by_region(region_name = "east")
+}
 
 
 # ------------------------------------------------------------------------------#
-####  BUILD & RUN MODELS  #### 
+####  BUILD & FIT CANDITATE MODELS  #### 
 # ------------------------------------------------------------------------------#
-
 # Vector of response variables to be tested sequentially
 responses <- c("totalWeightKg", "densityKgKm2")
 
 # Fixed-effects
 fixed_effect <- "1"
 
-source(here("04_MODEL/functions/fit_candidate_models.R"))
+source(here::here("04_MODEL/functions/fit_candidate_models.R"))
 
-source(here("04_MODEL/functions/sanity_filter_models.R"))
 
-source(here("04_MODEL/functions/extract_sdmTMB_params.R"))
+# ------------------------------------------------------------------------------#
+#### SANITY FILTER FITTED MODELS ####
+# ------------------------------------------------------------------------------#
+
+source(here::here("04_MODEL/functions/sanity_filter_models.R"))
+
+sanity_by_region <- list()
+# Apply sanity checks to West English Channel models
+if (isTRUE(West_English_Channel)) {
+  sanity_by_region$west <- sanity_filter_models(fitted_models_by_region$west)
+}
+# Apply sanity checks to East English Channel models
+if (isTRUE(East_English_Channel)) {
+  sanity_by_region$east <- sanity_filter_models(fitted_models_by_region$east)
+}
+
+
+# ------------------------------------------------------------------------------#
+#### EXTRACT CONVERGED MODELS and THEIR PARAMETER ESTIMATES ####
+# ------------------------------------------------------------------------------#
+
+source(here::here("04_MODEL/functions/get_converged_models.R"))
+converged_models <- get_converged_models(sanity_by_region)
+
+source(here::here("04_MODEL/functions/extract_parameter_estimates.R"))
+params_west <- extract_params_converged_models(converged_models, region = "west")
+params_east <- extract_params_converged_models(converged_models, region = "east")
+
+params_all <- bind_rows(params_east, params_west) %>%
+  mutate(region = factor(region, levels = c("west", "east")))
 
 
 # ------------------------------------------------------------------------------#
 ####  COMPUTE ANALYTICAL RANDOMIZED QUANTILE RESIDUALS  #### 
 # ------------------------------------------------------------------------------#
 
-source(here("04_MODEL/functions/analytical_randomized_quantile_residuals.R"))
+source(here::here("04_MODEL/functions/analytical_randomized_quantile_residuals.R"))
+residuals_by_region <- list()
+
+# West English Channel
+if (isTRUE(West_English_Channel)) {
+  residuals_by_region$west <- randomized_quantile_resids(converged_models, "west")
+}
+# East English Channel
+if (isTRUE(East_English_Channel)) {
+  residuals_by_region$east <- randomized_quantile_resids(converged_models, "east")
+}
 
 
 # ------------------------------------------------------------------------------#
 ####  SIMULATION BASED ANALYTICAL RANDOMIZED QUANTILE RESIDUALS  #### 
 # ------------------------------------------------------------------------------#
 
-source(here("04_MODEL/functions/simulation_based_randomized_quantile_residuals.R"))
+source(here::here("04_MODEL/functions/simulation_based_randomized_quantile_residuals.R"))
+dharma_by_region <- list()
+if (isTRUE(West_English_Channel)) {
+  dharma_by_region$west <- rmse_mae_from_dharma_sim(converged_models, "west")
+}
+if (isTRUE(East_English_Channel)) {
+  dharma_by_region$east <- rmse_mae_from_dharma_sim(converged_models, "east")
+}
 
 
 # ------------------------------------------------------------------------------#
-####  AIC weights  #### 
+####  cAIC weights  #### 
 # ------------------------------------------------------------------------------#
+source(here::here("04_MODEL/functions/AIC_weights.R"))
+AIC_by_region <- list()
 
-# https://doi.org/10.1093/icesjms/fsaf040
-source(here("04_MODEL/functions/AIC_weights.R"))
+if (isTRUE(West_English_Channel)) {
+  AIC_by_region$west <- compute_cAIC_weights(converged_models, "west")
+}
+if (isTRUE(East_English_Channel)) {
+  AIC_by_region$east <- compute_cAIC_weights(converged_models, "east")
+}
 
 
 # ------------------------------------------------------------------------------#
 ####  RANDOM CROSS-VALIDATION #### 
 # ------------------------------------------------------------------------------#
+source(here::here("04_MODEL/functions/cross_validation_random.R"))
+randomCV_by_region <- list()
 
-source(here("04_MODEL/functions/cross_validation_random.R"))
+if (isTRUE(West_English_Channel)) {
+  randomCV_by_region$west <- random_CV(converged_models, "west")
+}
+if (isTRUE(East_English_Channel)) {
+  randomCV_by_region$east <-  random_CV(converged_models, "east")
+}
 
 
 # ------------------------------------------------------------------------------#
 ####  SPATIO TEMPORAL BLOCKED CROSS-VALIDATION #### 
 # ------------------------------------------------------------------------------#
+source(here::here("04_MODEL/functions/cross_validation_spatiotemporal_block.R"))
+blockedCV_by_region <- list()
 
-source(here("04_MODEL/functions/cross_validation_spatiotemporal_block.R"))
+if (isTRUE(West_English_Channel)) {
+  blockedCV_by_region$west <- spatiotemp_blocked_CV(converged_models, "west")
+}
+if (isTRUE(East_English_Channel)) {
+  blockedCV_by_region$east <-  spatiotemp_blocked_CV(converged_models, "east")
+}
 
-# ------------------------------------------------------------------------------#
-####  SAVE OUTPUTS ####  
-# ------------------------------------------------------------------------------#
-
-# REPORT 
-sp_safe <- gsub("[^A-Za-z0-9_]", "_", sp_scientific)
-
-base_dir = here("05_OUTPUTS", "model_diagnostics")
-
-# Create species-specific directory
-sp_dir <- file.path(base_dir, paste0("model_diagnostics_", sp_safe))
-if (!dir.exists(sp_dir)) dir.create(sp_dir, recursive = TRUE)
-
-
-source(here("04_MODEL/functions/save_model_diagnostics.R"))
-
-save_model_diagnostics(
-  sp_scientific = sp_scientific,
-  sanity_by_region = sanity_by_region,
-  residuals_by_region = residuals_by_region,
-  dharma_by_region = dharma_by_region,
-  AIC_by_region = AIC_by_region,
-  randomCV_by_region = randomCV_by_region,
-  blockedCV_by_region = blockedCV_by_region
-)
 
 # ------------------------------------------------------------------------------#
 ####  DESIGN THE PREDICTION GRID  ####
 # ------------------------------------------------------------------------------#
-
 # grid resolution in km
 res_km = 5
-
-source(here('04_MODEL/functions/design_grid.R'))
-
+source(here::here('04_MODEL/functions/design_grid.R'))
+grid_by_region <- list()
+if (isTRUE(West_English_Channel)) grid_by_region$west <- design_grids( "west")
+if (isTRUE(East_English_Channel)) grid_by_region$east <- design_grids("east")
 
 
 # ------------------------------------------------------------------------------#
-####  PREDICT ON THE GRID ####
+####  PREDICT ON THE GRID AND MAP PREDICTIONS ####
 # ------------------------------------------------------------------------------#
+source(here::here("04_MODEL/functions/predict_all_converged_models.R"))
+converged_models_predictions <- predict_all_converged_models(converged_models, grids_by_region)
 
-source(here("04_MODEL/functions/predict_plot_models_valid.R"))
+source(here::here("04_MODEL/functions/map_predictions.R"))
 
 
 # ------------------------------------------------------------------------------#
 ####  SIMULATE & COMPUTE, PLOT COEFFICIENT OF VARIATION ####
 # ------------------------------------------------------------------------------#
+source(here::here("04_MODEL/functions/simulate_compute_plot_coeff_variation.R"))
 
-source(here("04_MODEL/functions/simulate_compute_plot_coeff_variation.R"))
+
+# ------------------------------------------------------------------------------#
+####  SAVE OUTPUTS ####  
+# ------------------------------------------------------------------------------#
+source(here::here("04_MODEL/functions/save_model_diagnostics.R"))
 
 
 # ------------------------------------------------------------------------------#
 ####  SAVE ALL PLOTS INTO HTLM FILE ####
 # ------------------------------------------------------------------------------#
-
-rmarkdown::render(
-  input = here("04_MODEL", "report", "report.Rmd"),
-  output_dir = sp_dir,
-  output_file = paste0(
-    "report_", sp_safe, "_", format(Sys.time(), "%d-%b-%Y-%H.%M"), ".html"
-  )
-)
+rmarkdown::render(input = here::here("04_MODEL", "report", "report.Rmd"),
+                  output_dir = new_repertory_model,
+                  output_file = paste0(sp_name_safe, "_report", ".html"))
 
 
