@@ -1,89 +1,7 @@
 
 # ==============================================================================#
-# Predict all valid models by region, produce maps 
+# Map predictions for all converged models
 # ==============================================================================#
-
-# Load sanity by region object
-valid_models_predict <- readRDS(here("05_OUTPUTS", "model_diagnostics", 
-                                     paste0("model_diagnostics_", sp_safe),                          
-                                     "sanity_by_region.rds"))
-
-# Example access : 
-# valid_models_predict <- readRDS("~/EBESCO/SDM/05_OUTPUTS/model_diagnostics/model_diagnostics_Trachurus_trachurus/sanity_by_region.rds")
-
-# ------------------------------------------------------------------------------#
-# Function used to extract only valid models from the diagnostics object
-# ------------------------------------------------------------------------------#
-
-get_valid_models <- function(valid_models_predict) {
-  # Initialize an empty list with one element per region
-  res <- setNames(vector("list", length(valid_models_predict)),
-                  names(valid_models_predict))
-  
-  # Loop over regions
-  for (region in names(valid_models_predict)) {
-    region_list <- valid_models_predict[[region]]
-    
-    if (is.null(region_list)) next    # Skip empty or NULL regions
-    
-    # Loop over responses within a region & extract valid models for this response
-    for (response in names(region_list)) {
-      models_valid <- region_list[[response]]$models_valid
-      
-      # Store only non-empty valid model lists
-      if (!is.null(models_valid)) {
-        res[[region]][[response]] <- models_valid
-      }
-    }
-  }
-  # Remove regions that ended up empty
-  res <- res[vapply(res, length, integer(1)) > 0]
-  return(res)
-}
-
-
-# ------------------------------------------------------------------------------#
-# Prediction grids by region
-# ------------------------------------------------------------------------------#
-grids_by_region <- list(east = grid_by_region$east$grid_pred,
-                        west = grid_by_region$west$grid_pred)
-
-
-# ------------------------------------------------------------------------------#
-# Predict all valid models on their corresponding regional grids
-# ------------------------------------------------------------------------------#
-
-predict_all_valid_models <- function(valid_models_only, grids_by_region) {
-  
-  # Build the list of valid models only
-  valid_models_only <- get_valid_models(valid_models_predict)
-  predictions_list <- list()
-  
-  for (region in names(valid_models_only)) {
-    
-    grid_region <- grids_by_region[[region]]
-    
-    for (response in names(valid_models_only[[region]])) {
-      
-      for (model_name in names(valid_models_only[[region]][[response]])) {
-        
-        pred_model <- valid_models_only[[region]][[response]][[model_name]]
-        
-        predictions_list[[region]][[response]][[model_name]] <- predict(
-          pred_model,
-          newdata = grid_region,
-          type = "response",
-          model = NA
-        )
-      }
-    }
-  }
-  
-  return(predictions_list)
-}
-
-# Run predictions for all regions, responses, and valid models
-all_predictions_by_region <- predict_all_valid_models(valid_models_only, grids_by_region)
 
 # ------------------------------------------------------------------------------#
 # Build land polygons and plotting bounds per region 
@@ -160,17 +78,17 @@ plot_pred_map <- function(data, land_obj, response, fill_base, subtitle) {
 delta_models <- c("deltagamma", "deltalognormal", "deltagammapoissonlink")
 # one_comp_models <- c("tweedie", "gamma", "lognormal")  
 
-plots_all <- list()
+prediction_maps <- list()
 
-for (region in names(all_predictions_by_region)) {
+for (region in names(converged_models_predictions)) {
   
   land_obj <- land_by_region[[region]]
   
-  for (response in names(all_predictions_by_region[[region]])) {
+  for (response in names(converged_models_predictions[[region]])) {
     
-    for (model_name in names(all_predictions_by_region[[region]][[response]])) {
+    for (model_name in names(converged_models_predictions[[region]][[response]])) {
       
-      predictions <- all_predictions_by_region[[region]][[response]][[model_name]]
+      predictions <- converged_models_predictions[[region]][[response]][[model_name]]
       predictions <- as.data.frame(predictions)
       
       # choose which variables to plot depending on the model type
@@ -190,7 +108,7 @@ for (region in names(all_predictions_by_region)) {
           subtitle = paste(region, response, model_name, fill_base, sep = " - ")
         )
         
-        plots_all[[region]][[response]][[model_name]][[fill_base]] <- p
+        prediction_maps[[region]][[response]][[model_name]][[fill_base]] <- p
       }
     }
   }
@@ -199,24 +117,8 @@ for (region in names(all_predictions_by_region)) {
 
 
 # ------------------------------------------------------------------------------#
-# Save all plots as a single RDS object
-# ------------------------------------------------------------------------------#
-
-out_rds <- here::here(
-  "05_OUTPUTS", "model_diagnostics",
-  paste0("model_diagnostics_", sp_safe),
-  paste0("plots_predictions_", sp_safe, ".rds")
-)
-
-dir.create(dirname(out_rds), showWarnings = FALSE, recursive = TRUE)
-
-saveRDS(plots_all, out_rds)
-
-
-
-# ------------------------------------------------------------------------------#
 # Example access:
-plots_all$east$densityKgKm2$deltagamma$est
-plots_all$east$densityKgKm2$tweedie$omega_s
-# plots_all$east$totalWeightKg$tweedie$omega_s
+# prediction_maps$east$densityKgKm2$deltagamma$est
+# prediction_maps$east$densityKgKm2$tweedie$omega_s
+# prediction_maps$east$totalWeightKg$tweedie$omega_s
 # ------------------------------------------------------------------------------#
