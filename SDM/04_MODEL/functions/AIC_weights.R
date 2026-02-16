@@ -2,20 +2,20 @@
 #### COMPUTE AIC WEIGHTS FROM VALID MODELS ####
 # ============================================================================== #
 
-compute_AIC_weights <- function(sanity_output, region_name = "region") {
+
+compute_cAIC_weights <- function(converged_models, region_name = "region") {
   
-  AIC_weights_by_response <- list()
+  models_by_response <- converged_models[[region_name]]
+  
+  AIC_list <- list()
   
   # Loop over response variables
-  for (response_var in names(sanity_output)) {
+  for (response_name in names(models_by_response)) {
     
-    fitted_models <- sanity_output[[response_var]]$models_valid
+    models_by_family <- models_by_response[[response_name]]
     
-    # Skip if no valid models
-    if (length(fitted_models) == 0) next
-    
-    # Compute AIC [AIC()] 
-    AIC_values <- sapply(fitted_models, AIC)
+    # Compute conditional AIC for each family
+    AIC_values <- sapply(models_by_family, sdmTMB::cAIC)
     
     # Delta AIC
     deltaAIC <- AIC_values - min(AIC_values)
@@ -25,7 +25,7 @@ compute_AIC_weights <- function(sanity_output, region_name = "region") {
     weights <- relative_likelihood / sum(relative_likelihood)
     
     AIC_df <- data.frame(region = region_name,
-                         response = response_var,
+                         response = response_name,
                          family = names(AIC_values),
                          AIC = as.numeric(AIC_values),
                          deltaAIC = as.numeric(deltaAIC),
@@ -33,10 +33,10 @@ compute_AIC_weights <- function(sanity_output, region_name = "region") {
     
     AIC_df <- AIC_df[order(AIC_df$AIC), ]
     
-    AIC_weights_by_response[[response_var]] <- AIC_df
+    AIC_list[[response_name]] <- AIC_df
   }
   
-  AIC_weights_df <- do.call(rbind, AIC_weights_by_response)
+  AIC_weights_df <- do.call(rbind, AIC_list)
   rownames(AIC_weights_df) <- NULL
   
   return(AIC_weights_df)
@@ -44,23 +44,15 @@ compute_AIC_weights <- function(sanity_output, region_name = "region") {
 
 
 
-AIC_by_region <- list()
-
-if (isTRUE(East_English_Channel)) {
-  AIC_by_region$east <- compute_AIC_weights(
-    sanity_output = sanity_by_region$east,
-    region_name = "east"
-  )
-}
-
-if (isTRUE(West_English_Channel)) {
-  AIC_by_region$west <- compute_AIC_weights(
-    sanity_output = sanity_by_region$west,
-    region_name = "west"
-  )
-}
-
-
+# AIC_by_region <- list()
+# 
+# if (isTRUE(West_English_Channel)) {
+#   AIC_by_region$west <- compute_cAIC_weights(converged_models, "west")
+# }
+# 
+# if (isTRUE(East_English_Channel)) {
+#   AIC_by_region$east <- compute_cAIC_weights(converged_models, "east")
+# }
 
 
 

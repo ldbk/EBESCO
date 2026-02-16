@@ -5,9 +5,9 @@
 # This function takes the output of fit_candidate_models() and applies 
 # sdmTMB::sanity() to all successfully fitted models.
 
-sanity_filter_models <- function(fit_output) {
+sanity_filter_models <- function(fit_outputs) {
   
-  fits <- fit_output$fits
+  fits <- fit_outputs$fits
   sanity_results <- list()
   
   # --------------------------------------------------------------------------- #
@@ -28,7 +28,7 @@ sanity_filter_models <- function(fit_output) {
     for (family_name in names(models_fitted)) {
       
       # Print progress message
-      cat("Sanity:", fit_output$region, "English Channel -", response, "-", family_name, "\n")
+      cat("Sanity:", fit_outputs$region, "English Channel -", response, "-", family_name, "\n")
       
       # Extract the fitted model
       current_checked_model <- models_fitted[[family_name]]
@@ -62,17 +62,17 @@ sanity_filter_models <- function(fit_output) {
 # sanity filtering by region
 # ----------------------------------------------------------------------------- #
 
-sanity_by_region <- list()
-
-# Apply sanity checks to East English Channel models
-if (isTRUE(East_English_Channel)) {
-  sanity_by_region$east <- sanity_filter_models(fitted_models_by_region$east)
-}
-
-# Apply sanity checks to West English Channel models
-if (isTRUE(West_English_Channel)) {
-  sanity_by_region$west <- sanity_filter_models(fitted_models_by_region$west)
-}
+# sanity_by_region <- list()
+# 
+# # Apply sanity checks to East English Channel models
+# if (isTRUE(East_English_Channel)) {
+#   sanity_by_region$east <- sanity_filter_models(fitted_models_by_region$east)
+# }
+# 
+# # Apply sanity checks to West English Channel models
+# if (isTRUE(West_English_Channel)) {
+#   sanity_by_region$west <- sanity_filter_models(fitted_models_by_region$west)
+# }
 
 
 
