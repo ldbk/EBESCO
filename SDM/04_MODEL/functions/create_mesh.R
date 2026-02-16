@@ -5,9 +5,14 @@
 
 
 # Function that builds a mesh from CGFS data
-run_mesh_spde <- function(data_CGFS, region_name = "region") {
+create_mesh_by_region <- function(region_name = "region") {
   
-
+  if (region_name == "west") {
+    data_CGFS <- data_CGFS_west
+  } else if (region_name == "east") {
+    data_CGFS <- data_CGFS_east
+  }
+  
 # # ------------------------------------------------------------------------------#
 # #### 1. Compute shortest mean distance ####
 # # ------------------------------------------------------------------------------#
@@ -168,19 +173,19 @@ return(list(
 # ------------------------------------------------------------------------------#
 #### 5. Build meshes by region depending on user-defined flags ####
 # ------------------------------------------------------------------------------#
-
-mesh_by_region <- list()
-
-# If East_English_Channel is TRUE, build the east mesh
-if (isTRUE(East_English_Channel)) {
-  mesh_by_region$east <- run_mesh_spde(data_CGFS = data_CGFS_east, region_name = "east")
-}
-
-# If West_English_Channel is TRUE, build the west mesh
-if (isTRUE(West_English_Channel)) {
-  mesh_by_region$west <- run_mesh_spde(data_CGFS = data_CGFS_west, region_name = "west")
-}
-
+# 
+# mesh_by_region <- list()
+# 
+# # If East_English_Channel is TRUE, build the east mesh
+# if (isTRUE(East_English_Channel)) {
+#   mesh_by_region$east <- create_mesh_by_region(region_name = "east")
+# }
+# 
+# # If West_English_Channel is TRUE, build the west mesh
+# if (isTRUE(West_English_Channel)) {
+#   mesh_by_region$west <- create_mesh_by_region(region_name = "west")
+# }
+# 
 
 
 

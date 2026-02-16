@@ -3,19 +3,20 @@
 # DESIGN GRID AGGREGATE RASTER CELLS (UTM grid, clipped cells, area per cell)   #
 # ============================================================================== #
 
-design_grids <- function(data_CGFS, region_name = "region") {
+design_grids <- function(region_name = "region") {
 
   
   # Use the shapefile of the English Channel to define the grid extent
-  if (region_name == "east"){
-    EC_shp <- vect(here("01_DATA", "shapefiles", "split_English_Channel", 
-                        "east_English_Channel.shp"))
-    } 
-  
-  else if (region_name == "west"){
+  if (region_name == "west"){
+    data_CGFS = data_CGFS_west
     EC_shp <- vect(here("01_DATA", "shapefiles", "Western_English_Channel_extension", 
                         "Western_English_Channel_extension.shp"))
   }
+  else if (region_name == "east"){
+    data_CGFS = data_CGFS_east
+    EC_shp <- vect(here("01_DATA", "shapefiles", "split_English_Channel", 
+                        "east_English_Channel.shp"))
+    } 
 
   # ------------------------------------------------------------------------------#
   #### Build UTM grid, clip to polygon, compute area by cell ####
@@ -97,14 +98,9 @@ design_grids <- function(data_CGFS, region_name = "region") {
 #### Build grids by region depending on user-defined flags ####
 # ------------------------------------------------------------------------------#
 
-grid_by_region <- list()
+# grid_by_region <- list()
+# if (isTRUE(East_English_Channel)) grid_by_region$east <- design_grids("east")
+# if (isTRUE(West_English_Channel)) grid_by_region$west <- design_grids( "west")
 
-if (isTRUE(East_English_Channel)) {
-  grid_by_region$east <- design_grids(data_CGFS = data_CGFS_east, region_name = "east")
-}
-
-if (isTRUE(West_English_Channel)) {
-  grid_by_region$west <- design_grids(data_CGFS = data_CGFS_west, region_name = "west")
-}
 
 
