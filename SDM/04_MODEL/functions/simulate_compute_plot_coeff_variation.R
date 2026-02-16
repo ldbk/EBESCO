@@ -1,46 +1,6 @@
 # ==============================================================================#
-# Simulations + Coffecient Variation maps for all valid models 
+# Simulation of predictions + Coffecient Variation maps 
 # ==============================================================================#
-
-# Load sanity by region object
-valid_models_predict <- readRDS(here("05_OUTPUTS", "model_diagnostics", 
-                                     paste0("model_diagnostics_", sp_safe),                          
-                                     "sanity_by_region.rds"))
-
-# Example access : 
-# valid_models_predict <- readRDS("~/EBESCO/SDM/05_OUTPUTS/model_diagnostics/model_diagnostics_Zeus_faber/sanity_by_region.rds")
-
-# ------------------------------------------------------------------------------#
-# Function used to extract only valid models from the diagnostics object
-# ------------------------------------------------------------------------------#
-
-get_valid_models <- function(valid_models_predict) {
-  # Initialize an empty list with one element per region
-  res <- setNames(vector("list", length(valid_models_predict)),
-                  names(valid_models_predict))
-  
-  # Loop over regions
-  for (region in names(valid_models_predict)) {
-    region_list <- valid_models_predict[[region]]
-    
-    if (is.null(region_list)) next    # Skip empty or NULL regions
-    
-    # Loop over responses within a region & extract valid models for this response
-    for (response in names(region_list)) {
-      models_valid <- region_list[[response]]$models_valid
-      
-      # Store only non-empty valid model lists
-      if (!is.null(models_valid)) {
-        res[[region]][[response]] <- models_valid
-      }
-    }
-  }
-  # Remove regions that ended up empty
-  res <- res[vapply(res, length, integer(1)) > 0]
-  return(res)
-}
-
-valid_models_only <- get_valid_models(valid_models_predict)
 
 # ------------------------------------------------------------------------------#
 # Prediction grids by region
@@ -75,15 +35,15 @@ simulate_cv <- function(model, grid) {
 # ------------------------------------------------------------------------------#
 sim_cv_all <- list()
 
-for (region in names(valid_models_only)) {
+for (region in names(converged_models)) {
   
   grid_region <- grids_by_region[[region]]
 
-  for (response in names(valid_models_only[[region]])) {
+  for (response in names(converged_models[[region]])) {
     
-    for (model_name in names(valid_models_only[[region]][[response]])) {
+    for (model_name in names(converged_models[[region]][[response]])) {
       
-      mod <- valid_models_only[[region]][[response]][[model_name]]
+      mod <- converged_models[[region]][[response]][[model_name]]
       
       pred_cv <- simulate_cv(mod, grid_region)
       
@@ -91,18 +51,6 @@ for (region in names(valid_models_only)) {
     }
   }
 }
-
-# ------------------------------------------------------------------------------#
-# SAVE simulation outputs (data)
-# ------------------------------------------------------------------------------#
-out_rds_sim <- here(
-  "05_OUTPUTS", "model_diagnostics",
-  paste0("model_diagnostics_", sp_safe),
-  paste0("simulations_cv_", sp_safe, ".rds")
-)
-
-dir.create(dirname(out_rds_sim), showWarnings = FALSE, recursive = TRUE)
-saveRDS(sim_cv_all, out_rds_sim)
 
 
 # ------------------------------------------------------------------------------#
@@ -187,17 +135,6 @@ for (region in names(sim_cv_all)) {
   }
 }
 
-# ------------------------------------------------------------------------------#
-# Save plots
-# ------------------------------------------------------------------------------#
-out_rds_plots <- here(
-  "05_OUTPUTS", "model_diagnostics",
-  paste0("model_diagnostics_", sp_safe),
-  paste0("plots_cv_", sp_safe, ".rds")
-)
-
-dir.create(dirname(out_rds_plots), showWarnings = FALSE, recursive = TRUE)
-saveRDS(plots_cv_all, out_rds_plots)
 
 # ------------------------------------------------------------------------------
 # Example access:
