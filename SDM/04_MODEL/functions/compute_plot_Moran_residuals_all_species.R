@@ -1,22 +1,22 @@
 
 
-region_validity <- readRDS(here("01_DATA/species_region_validity.rds"))
-species_list <- sort(unique(region_validity$scientificName))
+region_validity <- readRDS(here("01_DATA/species_criteria_region.rds"))
+species_list <- sort(unique(region_validity$species))
 # species_list <- species_list[1:8]
 source(here("04_MODEL/functions/compute_plot_Moran.R"))
 source(here("04_MODEL/functions/compute_plot_residuals_withoutRF.R"))
 
-out_path <- here("05_OUTPUTS/Moran_all_species2.pdf")
+out_path <- here("05_OUTPUTS/Moran_all_species.pdf")
 dir.create(dirname(out_path), recursive = TRUE, showWarnings = FALSE)
 pdf(out_path, onefile = TRUE, width = 11, height = 7)
 
 for (sp in species_list) {
   
   sp_scientific <- sp
-  validity_sp <- dplyr::filter(region_validity, scientificName == sp_scientific)
+  validity_sp <- dplyr::filter(region_validity, species == sp_scientific)
   
-  West_English_Channel <- isTRUE(validity_sp$west[1])
-  East_English_Channel <- isTRUE(validity_sp$east[1])
+  West_English_Channel <- isTRUE(validity_sp$west_region[1])
+  East_English_Channel <- isTRUE(validity_sp$east_region[1])
   
   source(here("03_TRANSFORM_DATA/transform_data.R"))
   

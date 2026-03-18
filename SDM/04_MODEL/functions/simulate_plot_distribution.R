@@ -75,27 +75,24 @@ if (sp_scientific == "Trachurus trachurus" && region == "west") {
   # 2) Delta-lognormal
   # ----------------------------------------------------------------------------- #
   
-  # lognormal parameters
-  sdlog =  sqrt(log(1 + (sd(pos_response)^2)/(mean(pos_response)^2)))
-  meanlog = log(mean(pos_response)) - (1/2)*sdlog^2 
-  
-  # simulate delta-lognormal
-  sim_dlognormal <- sim_binomial * rlnorm(nb_hauls, meanlog = meanlog, sdlog = sdlog)
-  
+  # lognormal parameters and simulate delta-lognormal
+  sim_dlognormal <- tryCatch({
+    sdlog  <- sqrt(log(1 + (sd(pos_response)^2)/(mean(pos_response)^2)))
+    meanlog <- log(mean(pos_response)) - 0.5 * sdlog^2
+    sim_binomial * rlnorm(nb_hauls, meanlog = meanlog, sdlog = sdlog)
+  }, error = function(e) NULL)
   
   
   # ----------------------------------------------------------------------------- #
   # 3) Delta-Gamma
   # ----------------------------------------------------------------------------- #
   
-  # gamma parameters
-  gshape = mean(pos_response)^2/sd(pos_response)^2   
-  gscale = sd(pos_response)^2/mean(pos_response)
-  
-  # simulate delta-gamma
-  sim_dgamma <- sim_binomial * rgamma(nb_hauls, shape = gshape, scale = gscale)
-  
-  
+  # gamma parameters and simulate delta-gamma
+  sim_dgamma <- tryCatch({
+    gshape <- mean(pos_response)^2 / sd(pos_response)^2
+    gscale <- sd(pos_response)^2 / mean(pos_response)
+    sim_binomial * rgamma(nb_hauls, shape = gshape, scale = gscale)
+  }, error = function(e) NULL)
   
   
   # ----------------------------------------------------------------------------- #
@@ -104,15 +101,18 @@ if (sp_scientific == "Trachurus trachurus" && region == "west") {
   
   # Tweedie parameters
   # # Estimate the Tweedie power parameter by profile likelihood
-  tw_prof1 <- suppressWarnings(tweedie.profile(response ~ 1, p.vec = seq(1.05, 1.95, 0.05)))
-  power <- tw_prof1$p.max
-  # # Estimate phi = dispersion parameter at fixed Tweedie power parameter 
-  tw_prof2 <- suppressWarnings(tweedie.profile(response ~ 1, p.vec = power))
-  phi <- tw_prof2$phi.max
-  mu <- mean(response)
+  sim_tweedie2 <- tryCatch(suppressWarnings(tweedie.profile(response ~ 1, 
+                                                            p.vec = seq(1.05, 1.95, 0.05))),
+                           error = function(e) NULL)
   
-  # simulate tweedie
-  sim_tweedie <- fishMod::rTweedie(n = nb_hauls, p = power, mu = mu, phi = phi)
+  if (!is.null(sim_tweedie2)) {
+    power <- sim_tweedie2$p.max
+    phi <- sim_tweedie2$phi.max
+    mu <- mean(response, na.rm = TRUE)
+    sim_tweedie <- fishMod::rTweedie(n = nb_hauls, p = power, mu = mu, phi = phi)
+  } else {
+    sim_tweedie <- NULL   
+  }
   
   
   
@@ -130,9 +130,9 @@ if (sp_scientific == "Trachurus trachurus" && region == "west") {
        ylab = "Density",
        main = "")
   
-  lines(density(sim_dlognormal), lwd = 2, lty = 2, col = "dodgerblue3")
-  lines(density(sim_dgamma),  lwd = 2, lty = 2, col = "springgreen4")
-  lines(density(sim_tweedie), lty = 2, lwd = 2, col = "darkorange3")
+  try(lines(density(sim_dlognormal), lwd = 2, lty = 2, col = "dodgerblue3"), silent = TRUE)
+  try(lines(density(sim_dgamma), lwd = 2, lty = 2, col = "springgreen4"), silent = TRUE)
+  try(lines(density(sim_tweedie), lwd = 2, lty = 2, col = "darkorange3"), silent = TRUE)
   
   legend("topright",
          legend = c("Observed", "Delta-lognormal", "Delta-gamma", "Tweedie"),

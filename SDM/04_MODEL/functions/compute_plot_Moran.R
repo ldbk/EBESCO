@@ -5,6 +5,7 @@ compute_plot_Moran <- function(data_CGFS, region) {
   
   resultats_moran <- data_CGFS %>%
     dplyr::group_by(year) %>%
+    dplyr::filter(!all(densityKgKm2 == 0)) |>
     dplyr::group_modify(~{
       # compute euclidian distances between all points per year 
       dists <- as.matrix(dist(.x[, c("lat", "lon")]))
