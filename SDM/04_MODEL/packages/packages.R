@@ -1,73 +1,61 @@
-# 
-# 
-# 
-# 
-# install_or_update_packages <- function(packages_list){
-#   
-#   installed <- rownames(installed.packages())
-#   
-#   # Install missing packages
-#   missing <- packages_list[!packages_list %in% installed]
-#   if(length(missing) > 0){
-#     install.packages(missing, dependencies = TRUE, quiet = TRUE)
-#   }
-#   
-#   # Update all installed packages 
-#   update.packages(ask = FALSE, quiet = TRUE)
-#   
-#   # Load packages
-#   invisible(lapply(packages_list, function(packages){
-#     suppressPackageStartupMessages(library(packages, character.only = TRUE))
-#   }))
-# }
-# 
-# 
-# packages <- c(
-#   "tidyverse",        
-#   "here",
-#   "readxl",
-#   "devtools",
-#   "TMBhelper",
-#   "TMB",
-#   "pak",
-#   "sf",
-#   "sdmTMB","sdmTMBextra","ncdf4","terra",
-#   "raster","ggOceanMaps","ggspatial","rnaturalearth","inlabru",
-#   "rmdformats","viridis","visreg","fitdistrplus",#"tweedie",
-#   "scales","rlang","ape"
-# )
-# 
-# install_or_update_packages(packages)
+
+# Automatic installation, update and loading of required packages
+# -----------------------------------------------------------------------------#
+# -----------------------------------------------------------------------------#
 
 
+install_or_update_packages <- function(packages_list){
+  
+  # Get names of currently installed packages
+  installed <- rownames(installed.packages())
+  
+  # Identify packages that are not yet installed
+  missing <- packages_list[!packages_list %in% installed]
+  
+  # Install missing packages 
+  if(length(missing) > 0){
+    install.packages(missing, dependencies = TRUE)
+  }
+  
+  # Install sdmTMBextra from GitHub if not installed (requires remotes package)
+  if(!"sdmTMBextra" %in% installed){
+    if(!"remotes" %in% installed) install.packages("remotes")
+    remotes::install_github("pbs-assess/sdmTMBextra", dependencies = TRUE)
+  }
+  
+  # Update only the packages listed (not the entire library)
+  update.packages(oldPkgs = packages_list, ask = FALSE)
+  
+  # Load all requested packages silently
+  invisible(lapply(packages_list, function(package){
+    suppressPackageStartupMessages(library(package, character.only = TRUE))
+  }))
+}
 
 
+packages_list <- c(
+  "ape",
+  "dplyr",
+  "ggspatial",
+  "here",
+  "inlabru",
+  "ncdf4",
+  "pak",
+  "raster",
+  "readr",
+  "readxl",
+  "remotes",
+  "rlang",
+  "rmdformats",
+  "rnaturalearth",
+  "scales",
+  "sdmTMB",
+  "sdmTMBextra",
+  "sf",
+  "terra",
+  "tidyverse",
+  "tweedie",
+  "viridis"
+)
 
-
-library(dplyr)
-library(here)
-library(devtools)
-library(TMBhelper)
-library(TMB)
-library(tidyverse)
-library(pak)
-library(readxl)
-library(readr)
-library(sf)
-library(sdmTMB)
-library(sdmTMBextra)
-library(ncdf4)
-library(terra)
-library(raster)
-library(ggOceanMaps)
-library(ggspatial)
-library(rnaturalearth)
-library(inlabru)
-library(rmdformats)
-library(viridis)
-library(visreg)
-library(fitdistrplus)
-library(tweedie)
-library(scales)
-library(rlang)
-library(ape)
+install_or_update_packages(packages_list)
