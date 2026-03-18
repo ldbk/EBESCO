@@ -1,0 +1,347 @@
+---
+title: "Mesh sensitivy analysis per species and region"
+date: "`r Sys.Date()`"
+output: 
+  rmdformats::downcute:
+  highlight: zenburn
+html_document :
+  toc: true
+toc_float: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = getwd())                                # garde le working dir actif
+knitr::opts_knit$set(envir = globalenv())                               # utilise l'env global
+knitr::opts_chunk$set(echo = FALSE, message=FALSE,warning=FALSE)
+```
+
+
+<br/>
+ 
+```{r echo=FALSE}
+
+print(sp_scientific)
+
+```
+<br/>
+<br/>
+
+# 1. Sanity results for meshes configurations
+<br/>
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+conv_simple <- if (!is.null(sanity_simple)) names(sanity_simple$cutoffs_converged_models) else character(0)
+fail_simple <- if (!is.null(sanity_simple)) names(sanity_simple$cutoffs_sanity_failed) else character(0)
+
+conv_barrier <- if (!is.null(sanity_barrier)) names(sanity_barrier$cutoffs_converged_models) else character(0)
+fail_barrier <- if (!is.null(sanity_barrier)) names(sanity_barrier$cutoffs_sanity_failed) else character(0)
+
+conv_boundary <- if (!is.null(sanity_boundary)) names(sanity_boundary$cutoffs_converged_models) else character(0)
+fail_boundary <- if (!is.null(sanity_boundary)) names(sanity_boundary$cutoffs_sanity_failed) else character(0)
+
+conv_simple <- if (!is.null(sanity_simple_no_max)) names(sanity_simple_no_max$cutoffs_converged_models) else character(0)
+fail_simple <- if (!is.null(sanity_simple_no_max)) names(sanity_simple_no_max$cutoffs_sanity_failed) else character(0)
+
+conv_barrier <- if (!is.null(sanity_barrier_no_max)) names(sanity_barrier_no_max$cutoffs_converged_models) else character(0)
+fail_barrier <- if (!is.null(sanity_barrier_no_max)) names(sanity_barrier_no_max$cutoffs_sanity_failed) else character(0)
+
+conv_boundary <- if (!is.null(sanity_boundary_no_max)) names(sanity_boundary_no_max$cutoffs_converged_models) else character(0)
+fail_boundary <- if (!is.null(sanity_boundary_no_max)) names(sanity_boundary_no_max$cutoffs_sanity_failed) else character(0)
+
+
+sanity_results_df <- dplyr::bind_rows(
+
+  tibble(cutoff = west_params$with_max$cutoff_values, 
+         config = "simple outer mesh", 
+         status = dplyr::case_when(
+           paste0("cutoff_", cutoff) %in% conv_simple ~ "converged",
+           paste0("cutoff_", cutoff) %in% fail_simple ~ "failed")),
+  tibble(cutoff = west_params$with_max$cutoff_values, 
+         config = "barrier outer mesh",
+         status = dplyr::case_when(
+           paste0("cutoff_", cutoff) %in% conv_barrier ~ "converged",
+           paste0("cutoff_", cutoff) %in% fail_barrier ~ "failed")),
+  tibble(cutoff = west_params$with_max$cutoff_values,
+         config = "boundary outer mesh",
+         status = dplyr::case_when(
+           paste0("cutoff_", cutoff) %in% conv_boundary ~ "converged",
+           paste0("cutoff_", cutoff) %in% fail_boundary ~ "failed")),
+    tibble(cutoff = west_params$no_max$cutoff_values, 
+         config = "simple", 
+         status = dplyr::case_when(
+           paste0("cutoff_", cutoff) %in% conv_simple ~ "converged",
+           paste0("cutoff_", cutoff) %in% fail_simple ~ "failed")),
+  tibble(cutoff = west_params$no_max$cutoff_values, 
+         config = "barrier",
+         status = dplyr::case_when(
+           paste0("cutoff_", cutoff) %in% conv_barrier ~ "converged",
+           paste0("cutoff_", cutoff) %in% fail_barrier ~ "failed")),
+  tibble(cutoff = west_params$no_max$cutoff_values,
+         config = "boundary",
+         status = dplyr::case_when(
+           paste0("cutoff_", cutoff) %in% conv_boundary ~ "converged",
+           paste0("cutoff_", cutoff) %in% fail_boundary ~ "failed"))
+  
+  )
+
+sanity_results_df$config <- factor(sanity_results_df$config,
+                                   levels = c("boundary","barrier","simple", 
+                                              "boundary outer mesh",
+                                              "barrier outer mesh", 
+                                              "simple outer mesh"))
+
+ggplot(sanity_results_df, aes(x = factor(cutoff), y = config, fill = status)) +
+  geom_tile(color = "white") +
+  scale_fill_manual(values = c(converged = "#2ca25f", failed = "#ffb703")) +
+  labs(x = "Cutoff", y = "Configuration", fill = "Model status") +
+  theme_minimal()
+
+```
+
+<br/>  
+<br/>
+
+# 2. Estimates and metrics for meshes configurations
+<br/>
+
+```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
+
+plot_df <- bind_rows(
+  all_params %>%
+    transmute(cutoff, config, metric = term, value = estimate, conf.low, conf.high),
+  all_params %>%
+    distinct(cutoff, config, cAIC, n_vertices) %>%
+    pivot_longer(cols = c(cAIC, n_vertices), names_to = "metric", values_to = "value") %>%
+    mutate(conf.low = NA, conf.high = NA)) %>%
+  mutate(cutoff = factor(cutoff), metric = factor(metric,
+      levels = c("(Intercept)", "range", "sigma_O", "cAIC", "n_vertices"),
+      labels = c("intercept", "spatial range", "sigma O", "cAIC", "number of vertices")))
+
+ggplot(plot_df, aes(x = cutoff, y = value, color = config, group = config)) +
+  geom_point(position = position_dodge(0.5), size = 2.5) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+                width = 0, position = position_dodge(0.5), na.rm = TRUE) +
+  facet_wrap(~metric, scales = "free_y") +
+  theme_bw() +
+  labs(x = "Cutoff", y = NULL, color = "Configuration")
+
+```
+
+<br/>  
+<br/>
+
+# 3. Plot meshes
+<br/>
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+if (!is.null(plots_meshes_simple)) plots_meshes_simple
+```
+<br/>  
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+if (!is.null(plots_meshes_boundary)) plots_meshes_boundary
+```
+<br/>  
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+if (!is.null(plots_meshes_barrier)) plots_meshes_barrier
+```
+<br/>  
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+if (!is.null(plots_meshes_simple_no_max)) plots_meshes_simple_no_max
+```
+<br/>  
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+if (!is.null(plots_meshes_boundary_no_max)) plots_meshes_boundary_no_max
+```
+<br/>  
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+if (!is.null(plots_meshes_barrier_no_max)) plots_meshes_barrier_no_max
+```
+blue points = centers of triangles located at sea  
+red points = centers of triangles positioned on land  
+In land triangles, the spatial range is reduced to 10% of the range used at sea (range_fraction = 0.1).
+<br/> 
+<br/>  
+
+
+# 3. Coefficient of variarion
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+# Convert resolution from km to degrees
+  res_deg_lat <- res_km / 111.32
+  res_deg_lon <- res_km / (111.32 * cos(50*pi/180))
+
+  # Define plot limits with a one-cell buffer
+  xmin_plot <- range(prediction_grid$lon)[1] - res_deg_lon
+  xmax_plot <- range(prediction_grid$lon)[2] + res_deg_lon
+  ymin_plot <- range(prediction_grid$lat)[1] - res_deg_lat
+  ymax_plot <- range(prediction_grid$lat)[2] + res_deg_lat
+
+  land <- ne_download(scale = "large", type = "land", category = "physical", returnclass = "sf") %>%
+    st_transform(4326) %>%
+    st_crop(xmin = xmin_plot, ymin = ymin_plot, xmax = xmax_plot, ymax = ymax_plot)
+```
+
+Simple mesh 
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+
+if(!is.null(cv_outputs_simple_no_max)) {
+  cv_outputs_simple_no_max %>%
+    filter(is.finite(cv), cv > 0) %>%
+    ggplot(aes(lon, lat, fill = cv)) +
+    geom_raster() +
+    geom_sf(data = land, fill = "grey80", inherit.aes = FALSE, color = "grey80") +
+    scale_y_continuous(breaks = pretty_breaks(n = 3)) +
+    scale_x_continuous(breaks = pretty_breaks(n = 4)) +
+    coord_sf(xlim = c(xmin_plot, xmax_plot), ylim = c(ymin_plot, ymax_plot), expand = FALSE) +
+    facet_grid(cutoff ~ year) +   
+    theme(panel.grid = element_blank(),
+          panel.background = element_rect(fill = "white", colour = NA),
+          panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
+          strip.background = element_rect(fill = "grey40", color = "white"),
+          strip.text = element_text(color = "white", face = "bold")) +
+    labs(x = "", y = "",  fill = "CV") +
+    scale_fill_viridis_c(trans  = "log10",
+                         labels = label_number(drop0trailing = TRUE))
+}
+```
+
+Barrier mesh with outer mesh
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+
+if(!is.null(cv_outputs_barrier_no_max)) {
+  cv_outputs_barrier_no_max %>%
+    filter(is.finite(cv), cv > 0) %>%
+    ggplot(aes(lon, lat, fill = cv)) +
+    geom_raster() +
+    geom_sf(data = land, fill = "grey80", inherit.aes = FALSE, color = "grey80") +
+    scale_y_continuous(breaks = pretty_breaks(n = 3)) +
+    scale_x_continuous(breaks = pretty_breaks(n = 4)) +
+    coord_sf(xlim = c(xmin_plot, xmax_plot), ylim = c(ymin_plot, ymax_plot), expand = FALSE) +
+    facet_grid(cutoff ~ year) +   
+    theme(panel.grid = element_blank(),
+          panel.background = element_rect(fill = "white", colour = NA),
+          panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
+          strip.background = element_rect(fill = "grey40", color = "white"),
+          strip.text = element_text(color = "white", face = "bold")) +
+    labs(x = "", y = "",  fill = "CV") +
+    scale_fill_viridis_c(trans  = "log10",
+                         labels = label_number(drop0trailing = TRUE))
+}
+```
+
+Boundary mesh with outer mesh
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+
+if(!is.null(cv_outputs_boundary_no_max)) {
+  cv_outputs_boundary_no_max %>%
+    filter(is.finite(cv), cv > 0) %>%
+    ggplot(aes(lon, lat, fill = cv)) +
+    geom_raster() +
+    geom_sf(data = land, fill = "grey80", inherit.aes = FALSE, color = "grey80") +
+    scale_y_continuous(breaks = pretty_breaks(n = 3)) +
+    scale_x_continuous(breaks = pretty_breaks(n = 4)) +
+    coord_sf(xlim = c(xmin_plot, xmax_plot), ylim = c(ymin_plot, ymax_plot), expand = FALSE) +
+    facet_grid(cutoff ~ year) +   
+    theme(panel.grid = element_blank(),
+          panel.background = element_rect(fill = "white", colour = NA),
+          panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
+          strip.background = element_rect(fill = "grey40", color = "white"),
+          strip.text = element_text(color = "white", face = "bold")) +
+    labs(x = "", y = "",  fill = "CV") +
+    scale_fill_viridis_c(trans  = "log10",
+                         labels = label_number(drop0trailing = TRUE))
+}
+```
+
+Simple mesh with outer mesh
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+
+if(!is.null(cv_outputs_simple)) {
+  cv_outputs_simple %>%
+    filter(is.finite(cv), cv > 0) %>%
+    ggplot(aes(lon, lat, fill = cv)) +
+    geom_raster() +
+    geom_sf(data = land, fill = "grey80", inherit.aes = FALSE, color = "grey80") +
+    scale_y_continuous(breaks = pretty_breaks(n = 3)) +
+    scale_x_continuous(breaks = pretty_breaks(n = 4)) +
+    coord_sf(xlim = c(xmin_plot, xmax_plot), ylim = c(ymin_plot, ymax_plot), expand = FALSE) +
+    facet_grid(cutoff ~ year) +   
+    theme(panel.grid = element_blank(),
+          panel.background = element_rect(fill = "white", colour = NA),
+          panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
+          strip.background = element_rect(fill = "grey40", color = "white"),
+          strip.text = element_text(color = "white", face = "bold")) +
+    labs(x = "", y = "",  fill = "CV") +
+    scale_fill_viridis_c(trans  = "log10",
+                         labels = label_number(drop0trailing = TRUE))
+}
+```
+
+Barrier mesh with outer mesh
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+
+if(!is.null(cv_outputs_barrier)) {
+  cv_outputs_barrier %>%
+    filter(is.finite(cv), cv > 0) %>%
+    ggplot(aes(lon, lat, fill = cv)) +
+    geom_raster() +
+    geom_sf(data = land, fill = "grey80", inherit.aes = FALSE, color = "grey80") +
+    scale_y_continuous(breaks = pretty_breaks(n = 3)) +
+    scale_x_continuous(breaks = pretty_breaks(n = 4)) +
+    coord_sf(xlim = c(xmin_plot, xmax_plot), ylim = c(ymin_plot, ymax_plot), expand = FALSE) +
+    facet_grid(cutoff ~ year) +   
+    theme(panel.grid = element_blank(),
+          panel.background = element_rect(fill = "white", colour = NA),
+          panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
+          strip.background = element_rect(fill = "grey40", color = "white"),
+          strip.text = element_text(color = "white", face = "bold")) +
+    labs(x = "", y = "",  fill = "CV") +
+    scale_fill_viridis_c(trans  = "log10",
+                         labels = label_number(drop0trailing = TRUE))
+}
+```
+
+Boundary mesh with outer mesh
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+
+if(!is.null(cv_outputs_boundary)) {
+  cv_outputs_boundary %>%
+    filter(is.finite(cv), cv > 0) %>%
+    ggplot(aes(lon, lat, fill = cv)) +
+    geom_raster() +
+    geom_sf(data = land, fill = "grey80", inherit.aes = FALSE, color = "grey80") +
+    scale_y_continuous(breaks = pretty_breaks(n = 3)) +
+    scale_x_continuous(breaks = pretty_breaks(n = 4)) +
+    coord_sf(xlim = c(xmin_plot, xmax_plot), ylim = c(ymin_plot, ymax_plot), expand = FALSE) +
+    facet_grid(cutoff ~ year) +   
+    theme(panel.grid = element_blank(),
+          panel.background = element_rect(fill = "white", colour = NA),
+          panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
+          strip.background = element_rect(fill = "grey40", color = "white"),
+          strip.text = element_text(color = "white", face = "bold")) +
+    labs(x = "", y = "",  fill = "CV") +
+    scale_fill_viridis_c(trans  = "log10",
+                         labels = label_number(drop0trailing = TRUE))
+}
+```
+
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+
+all_cv_outputs %>%
+    mutate(config = factor(config, levels = c("simple", "barrier", "boundary", "simple outer mesh",
+                                              "barrier outer mesh", "boundary outer mesh"))) %>%
+  ggplot2::ggplot(aes(x = factor(cutoff), y = cv, color = factor(cutoff)))+
+  ggplot2::geom_boxplot()+
+  ggplot2::geom_violin(fill=NA)+
+  ggplot2::geom_hline(yintercept = 1, linetype = "dashed", color = "grey70")+
+  ggplot2::geom_hline(yintercept = 0.5, linetype = "dashed", color = "grey70")+
+  ggplot2::scale_color_brewer(palette = "Dark2")+
+  ggplot2::facet_wrap(~config)+
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = "none")
+  
+
+```
+
