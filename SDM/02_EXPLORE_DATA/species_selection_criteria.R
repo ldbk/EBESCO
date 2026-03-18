@@ -139,12 +139,12 @@ selection_criteria_df <- selection_criteria_df %>%
 #### ADD ARGUMENT COMMERCIAL IMPORTANCE ####
 #-------------------------------------------------------------------------------#
 
-species_commercial <- fish_commercial_importance %>%
+commercial_species <- fish_commercial_importance %>%
   dplyr::filter(FishStat_Data == "YES") %>%
   dplyr::pull(scientificName)
 
 selection_criteria_df <- selection_criteria_df %>%
-  dplyr::mutate(commercial_importance = species %in% species_commercial)
+  dplyr::mutate(commercial_importance = species %in% commercial_species)
 
 
 #-------------------------------------------------------------------------------#
@@ -262,7 +262,8 @@ all_activesoundprod_CGFS %>%
 
 
 
-
-
-
-
+# all_activesoundprod_CGFS_large <- all_activesoundprod_CGFS %>%
+#   dplyr::select(scientificName, year, region, prop_pres) %>%
+#   tidyr::pivot_wider(names_from = year, values_from = prop_pres, values_fill=0)
+# 
+# writexl::write_xlsx(all_activesoundprod_CGFS_large, "all_activesoundprod_CGFS.xlsx")
