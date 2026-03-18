@@ -176,7 +176,7 @@ return(list(
 # 
 # mesh_by_region <- list()
 # 
-# # If East_English_Channel is TRUE, build the east mesh
+# If East_English_Channel is TRUE, build the east mesh
 # if (isTRUE(East_English_Channel)) {
 #   mesh_by_region$east <- create_mesh_by_region(region_name = "east")
 # }

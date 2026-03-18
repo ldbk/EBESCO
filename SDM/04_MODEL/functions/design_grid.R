@@ -67,7 +67,7 @@ design_grids <- function(region_name = "region") {
   ymin_plot <- min(grid_pred$lat) - res_deg_lat
   ymax_plot <- max(grid_pred$lat) + res_deg_lat
 
-  land <- ne_download(scale = "large", type = "land", category = "physical", returnclass = "sf") %>%
+  land <- rnaturalearth::ne_download(scale = "large", type = "land", category = "physical", returnclass = "sf") %>%
     st_transform(4326) %>%
     st_crop(xmin = xmin_plot, ymin = ymin_plot, xmax = xmax_plot, ymax = ymax_plot)
 

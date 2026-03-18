@@ -8,7 +8,7 @@ output:
     toc: true
     toc_float: true
 params:
-  sp_scientific: "Capros aper"
+  sp_scientific: "Zeus faber"
 editor_options: 
   chunk_output_type: inline
 ---
@@ -28,18 +28,25 @@ rmarkdown::render(
   output_file = paste0("CGFS_est_ouest_exploration_", gsub(" ", "_", sp), ".html"))
 
 # species_list <- c(
-#   "Conger conger",
-#   "Engraulis encrasicolus",
-#   "Micromesistius poutassou",
-#   "Merluccius merluccius",
 #   "Capros aper",
-#   "Trachurus trachurus",
 #   "Chelidonichthys cuculus",
 #   "Chelidonichthys lucerna",
-#   "Eutrigla gurnardus",
-#   "Zeus faber",
-#   "Solea solea",
+#   "Clupea harengus" , 
+#   "Conger conger",
 #   "Dicentrarchus labrax"
+#   "Engraulis encrasicolus",
+#   "Eutrigla gurnardus",
+#   "Gadus morhua", 
+#   "Gobius niger", 
+#   "Hippocampus hippocampus"
+#   "Melanogrammus aeglefinus",
+#   "Merluccius merluccius",
+#   "Micromesistius poutassou",
+#   "Pollachius pollachius",
+#   "Solea solea",
+#   "Squalus acanthias" 
+#   "Trachurus trachurus",
+#   "Zeus faber"
 # )
 
 ```
@@ -291,7 +298,7 @@ sp_data_CGFS_density$substrate <- factor(sp_data_CGFS_density$substrate,
   
   
 
-  EC_shp <- vect(here("01_DATA", "shapefiles", "English_Channel", "English_Channel.shp"))
+  EC_shp <- vect(here("01_DATA", "shapefiles", "English_Channel_extension", "English_Channel_extension.shp"))
   EC_sf <- st_as_sf(EC_shp) %>% st_transform(4326)
 
 
