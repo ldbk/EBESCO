@@ -9,19 +9,33 @@ install_or_update_packages <- function(packages_list){
   # Get names of currently installed packages
   installed <- rownames(installed.packages())
   
-  # Identify packages that are not yet installed
-  missing <- packages_list[!packages_list %in% installed]
+  # Exclude GitHub-only packages (sdmTMBextra) from CRAN installation
+  cran_packages <- setdiff(packages_list, "sdmTMBextra")
   
-  # Install missing packages 
+  # Identify CRAN packages that are not yet installed
+  missing <- cran_packages[!cran_packages %in% installed]
+  
+  # Install missing CRAN packages 
   if(length(missing) > 0){
     install.packages(missing, dependencies = TRUE)
   }
   
-  # Install sdmTMBextra from GitHub if not installed (requires remotes package)
+  # Refresh the list of installed packages after installation
+  installed <- rownames(installed.packages())
+  
+  # Ensure 'remotes' is installed (required for GitHub installations)
+  if(!"remotes" %in% installed){
+    install.packages("remotes")
+  }
+  
+  # Refresh again after installing 'remotes'
+  installed <- rownames(installed.packages())
+  
+  # Install sdmTMBextra from GitHub if not already installed
   if(!"sdmTMBextra" %in% installed){
-    if(!"remotes" %in% installed) install.packages("remotes")
     remotes::install_github("pbs-assess/sdmTMBextra", dependencies = TRUE)
   }
+  
   
   # Update only the packages listed (not the entire library)
   update.packages(oldPkgs = packages_list, ask = FALSE)
@@ -40,6 +54,7 @@ packages_list <- c(
   "ggspatial",
   "here",
   "inlabru",
+  "fmesher",
   "ncdf4",
   "pak",
   "raster",
@@ -51,7 +66,7 @@ packages_list <- c(
   "rnaturalearth",
   "scales",
   "sdmTMB",
-  "sdmTMBextra",
+  "sdmTMBextra",     # ! Load sdmTMBextra after sdmTMB
   "sf",
   "terra",
   "tidyverse",
@@ -60,3 +75,5 @@ packages_list <- c(
 )
 
 install_or_update_packages(packages_list)
+
+
