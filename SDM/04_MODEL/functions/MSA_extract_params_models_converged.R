@@ -7,9 +7,9 @@ extract_params_models_converged <- function(meshes_options_region) {
     
     # metrics, params
     cutoff <- current_converged_model$cutoff
+    computation_time <- current_converged_model$elapsed_fit
     barrier <- isTRUE(current_converged_model$barrier)
     boundary <- isTRUE(current_converged_model$boundary)
-    cAIC <- current_converged_model$cAIC_value
     n_vertices <- current_converged_model$n_vertices
     region <- current_converged_model$region
     
@@ -18,8 +18,8 @@ extract_params_models_converged <- function(meshes_options_region) {
     fixed <- tidy(current_fit) %>%
       dplyr::mutate(type = "fixed",
                     cutoff = cutoff,
-                    cAIC = cAIC,
                     n_vertices = n_vertices,
+                    computation_time = computation_time,
                     barrier = barrier,
                     boundary = boundary,
                     region = region)
@@ -29,8 +29,8 @@ extract_params_models_converged <- function(meshes_options_region) {
       dplyr::filter(.data$term %in% c("range", "sigma_O")) %>%
       dplyr::mutate(type = "random",
                     cutoff = cutoff,
-                    cAIC = cAIC,
                     n_vertices = n_vertices,
+                    computation_time = computation_time,
                     barrier = barrier,
                     boundary = boundary,
                     region = region)

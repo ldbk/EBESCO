@@ -18,18 +18,13 @@ source(here::here('04_MODEL/packages/packages.R'))
 # ------------------------------------------------------------------------------#
 ## Define species
 # ----------------#
-sp_scientific <- "Capros aper"                 # Boarfish / Sanglier
+# sp_scientific <- "Capros aper"                 # Boarfish / Sanglier
 # sp_scientific <- "Chelidonichthys cuculus"     # Red gurnard / Grondin rouge
 # sp_scientific <- "Chelidonichthys lucerna"     # Tub gurnard / Grondin perlon
-# sp_scientific <- "Clupea harengus"             # Atlantic herring / Hareng de l’Atlantique
 # sp_scientific <- "Conger conger"               # European conger / Congre d'Europe
 # sp_scientific <- "Dicentrarchus labrax"        # European seabass / Bar européen
 # sp_scientific <- "Engraulis encrasicolus"      # European anchovy / Anchois
-# sp_scientific <- "Eutrigla gurnardus"          # Grey gurnard / Grondin gris
-# sp_scientific <- "Gadus morhua"                # morue
-# sp_scientific <- "Gobius niger"
 # sp_scientific <- "Hippocampus hippocampus"
-# sp_scientific <- "Melanogrammus aeglefinus"    # Haddock / Églefin
 # sp_scientific <- "Merluccius merluccius"       # European hake / Merlu européen
 # sp_scientific <- "Micromesistius poutassou"    # Blue whiting / Merlan bleu
 # sp_scientific <- "Pollachius pollachius"       # Pollack / Lieu jaune
@@ -43,7 +38,7 @@ sp_scientific <- "Capros aper"                 # Boarfish / Sanglier
 
 ## Define study refions for the species 
 # ----------------------------------------#
-species_criteria_region <- readRDS(here::here("01_DATA/species_criteria_region.rds"))%>%
+species_criteria_region <- readRDS(here::here("01_DATA/species_criteria_region_10percent.rds"))%>%
   dplyr::filter(species == sp_scientific)
 
 West_English_Channel = isTRUE(species_criteria_region$west_region)
@@ -62,13 +57,13 @@ source(here::here('03_TRANSFORM_DATA/transform_data.R'))
 # MESHES PARAMETERS
 # ------------------------------------------------------------------------------#
 
-west_params <- list(cutoff_values = c(3, 5, 7, 10, 15, 20),
-                    max_edge_in = c(15, 25, 35, 50, 75, 100),
-                    max_edge_out = rep(100, 6))
+west_params <- list(cutoff_values = c(1, 2, 3, 5, 7, 10, 15, 20),
+                    max_edge_in = c(5, 10, 15, 25, 35, 50, 75, 100),
+                    max_edge_out = rep(100, 8))
 
-east_params <- list(cutoff_values = c(2.5, 3, 5, 7, 10, 15),
-                    max_edge_in = c(13, 15, 25, 35, 50, 75),
-                    max_edge_out = rep(100, 6))
+east_params <- list(cutoff_values = c(1, 2, 3, 5, 7, 10, 15, 20),
+                    max_edge_in = c(5, 10, 15, 25, 35, 50, 75, 100),
+                    max_edge_out = rep(100, 8))
 
 # ------------------------------------------------------------------------------#
 # LOAD MSA FUNCTIONS 
@@ -77,6 +72,7 @@ east_params <- list(cutoff_values = c(2.5, 3, 5, 7, 10, 15),
 source(here::here("04_MODEL/functions/MSA_create_meshes_configurations.R"))
 source(here::here("04_MODEL/functions/MSA_check_sanity_meshes_config.R"))
 source(here::here("04_MODEL/functions/MSA_extract_params_models_converged.R"))
+source(here::here("04_MODEL/functions/MSA_compute_residuals_Moran_nsim1000.R"))
 source(here::here("04_MODEL/functions/MSA_plot_meshes_patchwork.R"))
 
 new_repertory_msa <- here(paste0("05_OUTPUTS/mesh_sensitivity_results/", 
@@ -118,112 +114,116 @@ for (region_name in names(regions_valid)) {
                                     add_barrier = FALSE, boundary = TRUE),
                                region_params))
   
+  
   # 2) Sanity checks
   # ----------------------------------------------------------------------------#
   
   sanity_simple <- if (!is.null(meshes_simple)) {
     check_sanity_meshes_config(meshes_simple)
-  } else {
-    NULL
-  }
+  } else NULL
   
   sanity_barrier <- if (!is.null(meshes_barrier)) {
     check_sanity_meshes_config(meshes_barrier)
-  } else {
-    NULL
-  }
+  } else NULL
   
   sanity_boundary <- if (!is.null(meshes_boundary)) {
     check_sanity_meshes_config(meshes_boundary)
-  } else {
-    NULL
-  }
+  } else NULL
   
+  
+  # Keep only converged models
   models_converged_simple <- if (!is.null(sanity_simple)) {
     sanity_simple$cutoffs_converged_models
-  } else {
-    NULL
-  }
+  } else NULL
   
   models_converged_barrier <- if (!is.null(sanity_barrier)) {
     sanity_barrier$cutoffs_converged_models
-  } else {
-    NULL
-  }
+  } else NULL
   
   models_converged_boundary <- if (!is.null(sanity_boundary)) {
     sanity_boundary$cutoffs_converged_models
-  } else {
-    NULL
-  }
-
+  } else NULL
+  
   
   # 3) Extract params
   # ----------------------------------------------------------------------------#
   params_simple <- if (!is.null(models_converged_simple)) {
     extract_params_models_converged(models_converged_simple)
-  } else {
-    NULL
-  }
+  } else NULL
   
   params_barrier <- if (!is.null(models_converged_barrier)) {
     extract_params_models_converged(models_converged_barrier)
-  } else {
-    NULL
-  }
+  } else NULL
   
   params_boundary <- if (!is.null(models_converged_boundary)) {
     extract_params_models_converged(models_converged_boundary)
-  } else {
-    NULL
-  }
+  } else NULL
   
   all_params <- dplyr::bind_rows(params_simple, params_barrier, params_boundary)
+  
+  
+  options(future.globals.maxSize = 2 * 1024^3)  # 2 Go
+  
+  moran_simple <- if (!is.null(models_converged_simple)) {
+    compute_residuals_Moran_parallel(models_converged_simple)
+  } else NULL
+  
+  moran_barrier <- if (!is.null(models_converged_barrier)) {
+    compute_residuals_Moran_parallel(models_converged_barrier)
+  } else NULL
+  
+  moran_boundary <- if (!is.null(models_converged_boundary)) {
+    compute_residuals_Moran_parallel(models_converged_boundary)
+  } else NULL
+  
+  # moran_simple <- if (!is.null(models_converged_simple)) {
+  #   compute_residuals_Moran(models_converged_simple)
+  # } else NULL
+  # 
+  # moran_barrier <- if (!is.null(models_converged_barrier)) {
+  #   compute_residuals_Moran(models_converged_barrier)
+  # } else NULL
+  # 
+  # moran_boundary <- if (!is.null(models_converged_boundary)) {
+  #   compute_residuals_Moran(models_converged_boundary)
+  # } else NULL
+
+  all_moran <- dplyr::bind_rows(moran_simple, moran_barrier, moran_boundary)
   
   
   # 4) Plot meshes patchwork
   # ----------------------------------------------------------------------------#
   plots_meshes_simple <- if (!is.null(models_converged_simple)) {
     plot_meshes_patchwork(models_converged_simple, ncol = 4)
-  } else {
-    NULL
-  }
+  } else NULL
   
   plots_meshes_barrier <- if (!is.null(models_converged_barrier)) {
     plot_meshes_patchwork(models_converged_barrier, ncol = 4)
-  } else {
-    NULL
-  }
+  } else NULL
   
   plots_meshes_boundary <- if (!is.null(models_converged_boundary)) {
     plot_meshes_patchwork(models_converged_boundary, ncol = 4)
-  } else {
-    NULL
-  }
+  } else NULL
   
   
-  source(here::here("04_MODEL/functions/MSA_simulate_compute_plot_coeff_variation.R"))
-
-  cv_outputs_simple <- if (!is.null(models_converged_simple)) {
-    simulate_cv(models_converged_simple, prediction_grid)
-  } else {
-    NULL
-  }
+  # 5) Make predictions
+  # ----------------------------------------------------------------------------#
   
-  cv_outputs_barrier <- if (!is.null(models_converged_barrier)) {
-    simulate_cv(models_converged_barrier, prediction_grid)
-  } else {
-    NULL
-  }
+  source(here::here("04_MODEL/functions/MSA_predict_converged_models.R"))
   
-  cv_outputs_boundary <- if (!is.null(models_converged_boundary)) {
-    simulate_cv(models_converged_boundary, prediction_grid)
-  } else {
-    NULL
-  }
+  predictions_simple <- if (!is.null(models_converged_simple)) {
+    make_predictions(models_converged_simple, prediction_grid)
+  } else NULL
   
-  all_cv_outputs <- bind_rows(cv_outputs_simple, cv_outputs_barrier, cv_outputs_boundary)
-
+  predictions_barrier <- if (!is.null(models_converged_barrier)) {
+    make_predictions(models_converged_barrier, prediction_grid)
+  } else NULL
+  
+  predictions_boundary <- if (!is.null(models_converged_boundary)) {
+    make_predictions(models_converged_boundary, prediction_grid)
+  } else NULL
+  
+  
   # ------------------------------------------------------------------------------#
   ####  SAVE ALL PLOTS INTO HTLM FILE ####
   # ------------------------------------------------------------------------------#
@@ -242,14 +242,15 @@ for (region_name in names(regions_valid)) {
     # ----------------------------------------------------------------------------#
     msa[[region_name]] <- list(
       region_params = region_params,
-      meshes = list(simple = meshes_simple, barrier = meshes_barrier, boundary = meshes_boundary),
-      sanity = list(simple = sanity_simple, barrier = sanity_barrier, boundary = sanity_boundary),
+      meshes = list(simple = meshes_simple, 
+                    barrier = meshes_barrier, 
+                    boundary = meshes_boundary),
+      sanity = list(simple = sanity_simple, 
+                    barrier = sanity_barrier, 
+                    boundary = sanity_boundary),
       models = list(simple = models_converged_simple, 
                     barrier = models_converged_barrier,
                     boundary = models_converged_boundary),
-      cv_outputs = list(cv_outputs_simple,
-                        cv_outputs_barrier, 
-                        cv_outputs_boundary),
       all_params = all_params,
       plots = list(meshes_simple = plots_meshes_simple,
                    meshes_barrier = plots_meshes_barrier,

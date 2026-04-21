@@ -93,6 +93,7 @@ create_meshes_configurations <- function(region_name,
         family_type = tweedie(link = "log")
       }
       
+      elapsed_fit <- system.time({
       fit <- sdmTMB::sdmTMB(data = data_CGFS,
                             formula = densityKgKm2 ~ 1,
                             mesh = mesh_used,
@@ -101,9 +102,7 @@ create_meshes_configurations <- function(region_name,
                             time = "year",
                             spatiotemporal = "IID")
       
-      # Metrics
-      n_vertices <- mesh_used$mesh$n
-      cAIC_value <- sdmTMB::cAIC(fit)
+      })["elapsed"]
       
       # -------------------------------------------------------------------------#
       # Fit spatial-temporal model with this mesh configuration
@@ -116,8 +115,8 @@ create_meshes_configurations <- function(region_name,
            barrier = add_barrier,
            mesh = mesh_used,
            bspde = bspde_used,
-           n_vertices = n_vertices,
-           cAIC_value = cAIC_value,
+           n_vertices = mesh_used$mesh$n,
+           elapsed_fit = elapsed_fit,
            fit = fit, 
            region = region_name)
       
