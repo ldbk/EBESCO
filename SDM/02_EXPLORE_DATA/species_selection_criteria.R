@@ -208,17 +208,22 @@ species_activeprod_ECGFS_count <- count_peryear_ECGFS %>%
 all_activesoundprod_CGFS <- bind_rows(species_activeprod_WCGFS_count, species_activeprod_ECGFS_count)%>%
   dplyr::mutate(region = factor(region, levels = c("west", "east")))
 
+all_activesoundprod_CGFS_10percent <- all_activesoundprod_CGFS %>%
+  group_by(scientificName, region)%>%
+  filter(min(prop_pres) >= 10)%>%
+  ungroup()
+
 # PLOT PRPORTION OF PRESENCE OF SELECTED SPECIES
-all_activesoundprod_CGFS %>%
+all_activesoundprod_CGFS_10percent %>%
   ggplot2::ggplot(aes(x = factor(year), 
              y = factor(scientificName, levels = rev(sort(unique(scientificName)))), 
              fill = prop_pres)) +
   ggplot2::geom_tile(color= "white") +
   ggplot2::geom_text(aes(label = round(prop_pres,1)), size = 3.5, color ="black") +
-  ggplot2::scale_fill_distiller(palette = "RdYlBu", trans = "log10", 
+  ggplot2::scale_fill_distiller(palette = "RdYlBu",
                        labels = scales::label_number()) +
   ggplot2::facet_wrap(~region)+
-  ggplot2::labs(x = "Years", y = NULL, fill = "Presence (%)")+
+  ggplot2::labs(x = "Years", y = NULL, fill = "Occurence (%)")+
   ggplot2::theme_bw() +
   ggplot2::theme(axis.text.y = element_text(size = 10, face = "italic"),
                  axis.title.x = element_text(size = 10, margin = margin(t = 8)),
@@ -252,12 +257,37 @@ all_activesoundprod_CGFS %>%
                  legend.position ="right")
 
 
+
+# Data frame of species selection criteria by region,
+# restricted to species reaching at least 10% occurrence
+selection_filtered <- selection_criteria_df %>%
+  filter(species %in% all_activesoundprod_CGFS_10percent$scientificName)
+
+# Build a species-by-region presence table indicating whether
+# each species is recorded in the east and/or west region
+region_presence <- all_activesoundprod_CGFS_10percent %>%
+  distinct(scientificName, region) %>%
+  mutate(present = TRUE) %>%
+  tidyr::pivot_wider(names_from = region, 
+                     values_from = present, 
+                     values_fill = FALSE)
+
+# Update the regional criteria:
+# if a species is absent from a region in the 10% occurrence data,
+# set the corresponding regional criterion to FALSE
+selection_updated_10percent <- selection_filtered %>%
+  left_join(region_presence, by = c("species" = "scientificName")) %>%
+  mutate(east_region = east_region & coalesce(east, FALSE),
+         west_region = west_region & coalesce(west, FALSE)) %>%
+  dplyr::select(-east, -west)%>%
+  arrange(species)
+
 #-------------------------------------------------------------------------------#
 ####  SELECTED SPECIES #### 
 #-------------------------------------------------------------------------------#
 
-# saveRDS(selection_criteria_df,
-#         file = here::here("01_DATA", "species_criteria_region.rds"))
+# saveRDS(selection_updated_10percent,
+#         file = here::here("01_DATA", "species_criteria_region_10percent.rds"))
 
 
 
@@ -267,3 +297,6 @@ all_activesoundprod_CGFS %>%
 #   tidyr::pivot_wider(names_from = year, values_from = prop_pres, values_fill=0)
 # 
 # writexl::write_xlsx(all_activesoundprod_CGFS_large, "all_activesoundprod_CGFS.xlsx")
+
+
+

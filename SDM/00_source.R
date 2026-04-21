@@ -24,19 +24,19 @@ source(here::here('04_MODEL/packages/packages.R'))
 # sp_scientific <- "Engraulis encrasicolus"      # European anchovy / Anchois
 # sp_scientific <- "Eutrigla gurnardus"          # Grey gurnard / Grondin gris
 # sp_scientific <- "Melanogrammus aeglefinus"    # Haddock / Églefin
-sp_scientific <- "Merluccius merluccius"       # European hake / Merlu européen
+# sp_scientific <- "Merluccius merluccius"       # European hake / Merlu européen
 # sp_scientific <- "Micromesistius poutassou"    # Blue whiting / Merlan bleu
 # sp_scientific <- "Pollachius pollachius"       # Pollack / Lieu jaune
 # sp_scientific <- "Squalus acanthias"           # Spiny dogfish / Aiguillat commun
 # sp_scientific <- "Trachurus trachurus"         # Atlantic horse mackerel / Chinchard commun
-# sp_scientific <- "Zeus faber"                  # John Dory / Saint-Pierre
+sp_scientific <- "Zeus faber"                  # John Dory / Saint-Pierre
 # sp_scientific <- "Clupea harengus"             # Atlantic herring / Hareng de l’Atlantique
 # sp_scientific <- "Solea solea"                 # Common sole / Sole commune
 
 
 ## Define study refions for the species 
 # ----------------------------------------#
-species_criteria_region <- readRDS(here::here("01_DATA/species_criteria_region.rds"))%>%
+species_criteria_region <- readRDS(here::here("01_DATA/species_criteria_region_10percent.rds"))%>%
   dplyr::filter(species == sp_scientific)
 
 West_English_Channel = isTRUE(species_criteria_region$west_region)
@@ -139,12 +139,12 @@ if (isTRUE(East_English_Channel)) {
 # ------------------------------------------------------------------------------#
 
 source(here::here("04_MODEL/functions/simulation_based_randomized_quantile_residuals.R"))
-dharma_by_region <- list()
+simulation_errors_by_region <- list()
 if (isTRUE(West_English_Channel)) {
-  dharma_by_region$west <- rmse_mae_from_dharma_sim(converged_models, "west")
+  simulation_errors_by_region$west <- rmse_mae_from_sim(converged_models, "west")
 }
 if (isTRUE(East_English_Channel)) {
-  dharma_by_region$east <- rmse_mae_from_dharma_sim(converged_models, "east")
+  simulation_errors_by_region$east <- rmse_mae_from_sim(converged_models, "east")
 }
 
 
@@ -197,7 +197,7 @@ if (isTRUE(East_English_Channel)) {
 res_km = 5
 source(here::here('04_MODEL/functions/design_grid.R'))
 grid_by_region <- list()
-if (isTRUE(West_English_Channel)) grid_by_region$west <- design_grids( "west")
+if (isTRUE(West_English_Channel)) grid_by_region$west <- design_grids("west")
 if (isTRUE(East_English_Channel)) grid_by_region$east <- design_grids("east")
 
 
@@ -207,14 +207,15 @@ if (isTRUE(East_English_Channel)) grid_by_region$east <- design_grids("east")
 source(here::here("04_MODEL/functions/predict_all_converged_models.R"))
 converged_models_predictions <- predict_all_converged_models(converged_models, grids_by_region)
 
-source(here::here("04_MODEL/functions/map_predictions.R"))
+source(here::here("04_MODEL/functions/map_predictions_common_fill_limits.R"))
+# source(here::here("04_MODEL/functions/map_predictions.R"))
 
 
 # ------------------------------------------------------------------------------#
 ####  SIMULATE & COMPUTE, PLOT COEFFICIENT OF VARIATION ####
 # ------------------------------------------------------------------------------#
 source(here::here("04_MODEL/functions/simulate_compute_plot_coeff_variation.R"))
-
+Solea_solea_converged_models$east$totalWeightKg$tweedie
 
 # ------------------------------------------------------------------------------#
 ####  SAVE OUTPUTS ####  

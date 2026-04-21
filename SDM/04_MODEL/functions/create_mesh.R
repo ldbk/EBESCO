@@ -61,24 +61,21 @@ create_mesh_by_region <- function(region_name = "region") {
   if (region_name == "west") {
     # West English Channel (~305 × 219 km)
     range0 <- 100                     # initial spatial range ≈ 1/3 of study area
-    max_edge <- c(40, 100)            # # max triangle edge length; inner and outer meshes ; < spatial range/5 inside, 5 times max_edge outside
-    cutoff <- 13                    # avoid very small triangles --> cutoff = max_edge/5
-    offset <- c(40, 100)            # ≈ one range between data and mesh boundary offset = c(max.edge, bound.outer)
-    
+    max_edge <- c(25, 100)            # # max triangle edge length; inner and outer meshes ; < spatial range/5 inside, 5 times max_edge outside
+    cutoff <- 5                    # avoid very small triangles --> cutoff = max_edge/5
+
   } else if (region_name == "east") {
     # East English Channel (~210 × 183 km)
-    range0 <- 70                    # initial spatial range ≈ 1/3 of study area
-    max_edge <- c(26, 70)            # < spatial range/5 inside, , 5 times max_edge outside
-    cutoff <- 5                      # avoid very small triangles --> cutoff = max_edge/5
-    offset <- c(26, 70)            # inner and outer border widths ≈ one range between data and mesh boundary  offset = c(max.edge, bound.outer)
+    range0 <- 73                    # initial spatial range ≈ 1/3 of study area
+    max_edge <- c(50, 100)            # < spatial range/5 inside, , 5 times max_edge outside
+    cutoff <- 10                      # avoid very small triangles --> cutoff = max_edge/5
   }
   
   mesh <- make_mesh(data_CGFS, c("X", "Y"),
                     fmesher_func = fmesher::fm_mesh_2d_inla,
                     max.edge = max_edge,
                        # - use 5 times max.edge in the outer extension/offset/boundary
-                    cutoff = cutoff, 
-                    offset = offset)
+                    cutoff = cutoff)
   # plot(mesh)
 # ------------------------------------------------------------------------------#
 #### 3. Add the land barrier to the mesh ####

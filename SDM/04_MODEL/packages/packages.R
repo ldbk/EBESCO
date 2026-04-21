@@ -36,6 +36,7 @@ install_or_update_packages <- function(packages_list){
 packages_list <- c(
   "ape",
   "dplyr",
+  "ggOceanMaps",
   "ggspatial",
   "here",
   "inlabru",

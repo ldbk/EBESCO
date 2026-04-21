@@ -30,7 +30,8 @@ fit_candidate_models <- function(data_CGFS, bspde, region_name = "region") {
         tweedie = sdmTMB::tweedie(link = "log"),
         deltagamma = delta_gamma(link1 = "logit", link2 = "log"),
         deltalognormal = delta_lognormal(link1 = "logit", link2 = "log"),
-        deltagammapoissonlink = delta_gamma(type = "poisson-link")
+        deltagammapoissonlink = delta_gamma(type = "poisson-link"),
+        deltalognormalpoissonlink = delta_lognormal(type = "poisson-link")
       ),
       # Candidate distributions for biomass density
       densityKgKm2 = list(

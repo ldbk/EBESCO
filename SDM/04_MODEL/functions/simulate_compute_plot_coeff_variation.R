@@ -22,7 +22,7 @@ simulate_cv <- function(model, grid) {
                          newdata = grid, 
                          type = "response", 
                          model = NA, 
-                         nsim = 100)
+                         nsim = 1000)
   
 
   grid$cv <- apply(simulations, 1, function(x) sd(x) / mean(x))
@@ -52,6 +52,12 @@ for (region in names(converged_models)) {
   }
 }
 
+# CV common limits
+cv_range_global <- range(unlist(lapply(sim_cv_all, function(region_list) {
+  unlist(lapply(region_list, function(response_list) {
+    lapply(response_list, function(df) df$cv)
+  }))
+})))
 
 # ------------------------------------------------------------------------------#
 # Build land polygons + bounds per region 
@@ -90,7 +96,7 @@ for (region in names(sim_cv_all)) {
 # ------------------------------------------------------------------------------#
 # Plot CV map 
 # ------------------------------------------------------------------------------#
-plot_cv_map <- function(data, land_obj, subtitle) {
+plot_cv_map <- function(data, land_obj, subtitle, fill_limits) {
   
   ggplot(data, aes(lon, lat, fill = cv)) +
     geom_raster() +
@@ -105,11 +111,11 @@ plot_cv_map <- function(data, land_obj, subtitle) {
           strip.background = element_rect(fill = "grey40", color = "white"),
           strip.text = element_text(color = "white", face = "bold")) +
     labs(x = "", y = "", subtitle = subtitle, fill = "CV") +
-    scale_fill_viridis_c(
-      trans = "log10",
-      labels = label_number(drop0trailing = TRUE)
-    )
+    scale_fill_viridis_c(trans = "log10", limits = fill_limits, oob = scales::squish,
+                         labels = label_number(drop0trailing = TRUE))
 }
+
+
 
 # ------------------------------------------------------------------------------#
 # Create CV plots for every region/response/model
@@ -129,7 +135,8 @@ for (region in names(sim_cv_all)) {
       plots_cv_all[[region]][[response]][[model_name]] <- plot_cv_map(
         data = df,
         land_obj = land_obj,
-        subtitle = paste(region, response, model_name, "CV", sep = " - ")
+        subtitle = paste(region, response, model_name, "CV", sep = " - "),
+        fill_limits = cv_range_global
       )
     }
   }

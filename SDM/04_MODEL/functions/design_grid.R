@@ -11,11 +11,17 @@ design_grids <- function(region_name = "region") {
     data_CGFS = data_CGFS_west
     EC_shp <- vect(here("01_DATA", "shapefiles", "Western_English_Channel_extension", 
                         "Western_English_Channel_extension.shp"))
-  }
+    # EC_proj <- project(EC_shp, "EPSG:32630")
+    # area_km2 <- expanse(EC_proj, unit = "km")    
+    # ext(EC_shp)
+    }
   else if (region_name == "east"){
     data_CGFS = data_CGFS_east
     EC_shp <- vect(here("01_DATA", "shapefiles", "split_English_Channel", 
                         "east_English_Channel.shp"))
+    # EC_proj <- project(EC_shp, "EPSG:32630")
+    # area_km2 <- expanse(EC_proj, unit = "km")  
+    # ext(EC_shp)
     } 
 
   # ------------------------------------------------------------------------------#

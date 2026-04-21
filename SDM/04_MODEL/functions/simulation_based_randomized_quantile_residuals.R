@@ -1,11 +1,21 @@
 
-
 # ------------------------------------------------------------------------------#
-# DHARMa simulation-based residual diagnostics for all valid models
+# Compute RMSE and MAE from simulated datasets for all converged models 
+#
+#   - take the observed data
+#   - simulate 1000 datasets from the model
+#   - compare simulated vs observed values by computing RMSE and MAE
+#
+# Arguments:
+#   converged_models : list of converged models (by region, variable, family)
+#   region_name : west or east
+#
+# Returns: tibble with RMSE and MAE for each simulation
 # ------------------------------------------------------------------------------#
 
-rmse_mae_from_dharma_sim <- function(converged_models, region_name = "region") {
+rmse_mae_from_sim <- function(converged_models, region_name = "region") {
   
+  # Take the dataset based on the region
   if (region_name == "west") {
     data_CGFS <- data_CGFS_west
   } else if (region_name == "east") {
@@ -14,12 +24,17 @@ rmse_mae_from_dharma_sim <- function(converged_models, region_name = "region") {
   
   set.seed(123)
   
+  # Get models for this region
   models_by_response <- converged_models[[region_name]]    
   
+  # Functions to compute errors
   rmse <- function(obs, sim) sqrt(mean((sim - obs)^2))
   mae  <- function(obs, sim) mean(abs(sim - obs))
   
+  # Store results here
   metrics_list <- list()  
+  dharma_QQplot_list <- list()
+  dharma_Moranplot_list <- list()
   
   # --------------------------------------------------------------------------- #
   # Loop over response variables
@@ -30,144 +45,43 @@ rmse_mae_from_dharma_sim <- function(converged_models, region_name = "region") {
     obs <- data_CGFS[[response_name]]
     
     # ------------------------------------------------------------------------- #
-    # Loop over valid models (families) for this response
+    # Loop over the distribution families of the converged models for this response
     # ------------------------------------------------------------------------- #
     for (family_name in names(models_by_family)) {
       
       fitted_model <- models_by_family[[family_name]]
-      
-      message("Running DHARMa simulations: ", region_name, " - ",
-              response_name, " - ", family_name)
+      model_id <- paste(region_name, response_name, family_name, sep = "_")
+     
+       message("Running simulations: ",region_name," - ",response_name," - ",family_name)
       
       # Simulate nsim datasets from the fitted model
-      simulated_data <- tryCatch(
-        simulate(fitted_model, nsim = 1000, type = "mle-mvn"),
-        error = function(e) e
-      )
+      simulated_data <- simulate(fitted_model, nsim = 1000, type = "mle-mvn")
 
-      metrics_list[[length(metrics_list) + 1]] <- tibble::tibble(
+      # Compute RMSE and MAE for each simulation
+      metrics_list[[model_id]] <- tibble::tibble(
         region = region_name,
         response = response_name,
         family = family_name,
         sim = paste0("sim_", seq_len(ncol(simulated_data))),
         RMSE = apply(simulated_data, 2, function(col) rmse(obs, col)),
-        MAE  = apply(simulated_data, 2, function(col) mae (obs, col))
-      )
+        MAE = apply(simulated_data, 2, function(col) mae (obs, col)))
+      
+      dharma_QQplot_list[[model_id]] <- dharma_residuals(simulated_data, 
+                                                         fitted_model, 
+                                                         return_DHARMa = TRUE)
+      
+      dharma_Moranplot_list[[model_id]] <- DHARMa::testSpatialAutocorrelation(
+        simulatedResponse = dharma_QQplot_list[[model_id]]$scaledResiduals, 
+        x = data_CGFS$X, 
+        y = data_CGFS$Y)
     }
   }
-  bind_rows(metrics_list)
+  
+  list(metrics = dplyr::bind_rows(metrics_list),
+       dharma = list(residuals = dharma_QQplot_list,
+                     Moran_plot = dharma_Moranplot_list))
+  
 }
 
-
-# ------------------------------------------------------------------------------#
-# Run DHARMa  diagnostics by region
-# ------------------------------------------------------------------------------#
-
-# dharma_by_region <- list()
-# 
-# if (isTRUE(East_English_Channel)) {
-#   dharma_by_region$east <- rmse_mae_from_dharma_sim(converged_models, "east")
-# }
-# 
-# if (isTRUE(West_English_Channel)) {
-#   dharma_by_region$west <- rmse_mae_from_dharma_sim(converged_models, "west")
-# }
-
-
-# family_colors <- c(
-#   "tweedie" = "#66c2a5",
-#   "deltagamma" = "#fc8d62",
-#   "deltalognormal" = "#8da0cb",
-#   "deltagammapoissonlink" = "#e78ac3",
-#   "gamma" = "#ffd92f",
-#   "lognormal" = "#a6d854"
-# )
-# 
-# # WEST plots
-# # -----------------------------------------------------------------------------#
-# 
-# if (isTRUE(West_English_Channel)) {
-#   
-#   metrics_west <- dharma_by_region$west$metrics_df
-#   
-#   mean_totalWeightKg_west <- mean(data_CGFS_west$totalWeightKg)
-#   mean_densityKgKm2_west <- mean(data_CGFS_west$densityKgKm2)
-#   
-#   obs_means_west <- tibble(
-#     response = c("totalWeightKg", "densityKgKm2"),
-#     mean_obs  = c(mean_totalWeightKg_west, mean_densityKgKm2_west))
-#   
-#   west_MAE <- ggplot(metrics_west %>% filter(response %in% obs_means_west$response),
-#                      aes(x = family, y = MAE, color = family)) +
-#     scale_y_log10() +    
-#     geom_boxplot(outlier.alpha = 0.2) +
-#     facet_wrap(~ response, scales = "free_y") +
-#     geom_hline(data = obs_means_west, aes(yintercept = mean_obs),
-#                linetype = "dotted", linewidth = 0.7) +
-#     scale_color_manual(values = family_colors)+
-#     labs(x = NULL, y = "MAE", subtitle = "Dotted line = average observations") +
-#     theme_bw() +
-#     theme(axis.text.x = element_text(angle = 45, hjust = 1), 
-#           legend.position = "none")
-#   
-#   west_RMSE <- ggplot(metrics_west %>% filter(response %in% obs_means_west$response),
-#                       aes(x = family, y = RMSE, color = family)) +
-#     scale_y_log10() +    
-#     geom_boxplot(outlier.alpha = 0.2) +
-#     facet_wrap(~ response, scales = "free_y") +
-#     geom_hline(data = obs_means_west, aes(yintercept = mean_obs),
-#                linetype = "dotted", linewidth = 0.7) +
-#     scale_color_manual(values = family_colors)+
-#     labs(x = NULL, y = "RMSE", 
-#          title = "West CGFS",
-#          subtitle = "Dotted line = average observations") +
-#     theme_bw() +
-#     theme(axis.text.x = element_text(angle = 45, hjust = 1), 
-#           legend.position = "none")
-#   
-# }
-# 
-# 
-# # EAST plots
-# # -----------------------------------------------------------------------------#
-# if (isTRUE(East_English_Channel)) {
-# 
-#   metrics_east <- dharma_by_region$east$metrics_df
-# 
-#   mean_totalWeightKg_east <- mean(data_CGFS_east$totalWeightKg)
-#   mean_densityKgKm2_east <- mean(data_CGFS_east$densityKgKm2)
-# 
-#   obs_means_east <- tibble(
-#     response = c("totalWeightKg", "densityKgKm2"),
-#     mean_obs  = c(mean_totalWeightKg_east, mean_densityKgKm2_east))
-#   
-#   east_MAE <- ggplot(metrics_east %>% filter(response %in% obs_means_east$response),
-#                      aes(x = family, y = MAE, color = family)) +
-#     scale_y_log10() +    
-#     geom_boxplot(outlier.alpha = 0.2) +
-#     facet_wrap(~ response, scales = "free_y") +
-#     geom_hline(data = obs_means_east, aes(yintercept = mean_obs),
-#                linetype = "dotted", linewidth = 0.7) +
-#     scale_color_manual(values = family_colors)+
-#     labs(x = NULL, y = "MAE", 
-#          subtitle = "Dotted line = average observations") +
-#     theme_bw() +
-#     theme(axis.text.x = element_text(angle = 45, hjust = 1), 
-#           legend.position = "none")
-#   
-#   east_RMSE <- ggplot(metrics_east %>% filter(response %in% obs_means_east$response),
-#                       aes(x = family, y = RMSE, color = family)) +
-#     scale_y_log10() +    
-#     geom_boxplot(outlier.alpha = 0.2) +
-#     facet_wrap(~ response, scales = "free_y") +
-#     geom_hline(data = obs_means_east, aes(yintercept = mean_obs),
-#                linetype = "dotted", linewidth = 0.7) +
-#     scale_color_manual(values = family_colors)+
-#     labs(x = NULL, y = "RMSE", 
-#          title = "East CGFS",
-#          subtitle = "Dotted line = average observations") +
-#     theme_bw() +
-#     theme(axis.text.x = element_text(angle = 45, hjust = 1), 
-#           legend.position = "none")
-# 
-# }
+out_east <- rmse_mae_from_sim(Solea_solea_converged_models, region_name = "east")
+plot(out_east$dharma$east_densityKgKm2_deltalognormal)

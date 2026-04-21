@@ -42,9 +42,9 @@ randomized_quantile_resids <- function(converged_models, region_name = "region")
         residuals_raw <- tryCatch(
           {
             if (length(components) == 2) {
-              sdmTMB::residuals(fitted_model, type = "mle-mvn", model = component_id)
+              residuals(fitted_model, type = "mle-mvn", model = component_id)
             } else {
-              sdmTMB::residuals(fitted_model, type = "mle-mvn")
+              residuals(fitted_model, type = "mle-mvn")
             }
           },
           error = function(e) NULL
