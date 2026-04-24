@@ -10,7 +10,7 @@ install_or_update_packages <- function(packages_list){
   installed <- rownames(installed.packages())
   
   # Exclude GitHub-only packages (sdmTMBextra) from CRAN installation
-  cran_packages <- setdiff(packages_list, "sdmTMBextra")
+  cran_packages <- setdiff(packages_list, c("sdmTMBextra", "rnaturalearthhires"))
   
   # Identify CRAN packages that are not yet installed
   missing <- cran_packages[!cran_packages %in% installed]
@@ -35,8 +35,9 @@ install_or_update_packages <- function(packages_list){
   if(!"sdmTMBextra" %in% installed){
     remotes::install_github("pbs-assess/sdmTMBextra", dependencies = TRUE)
   }
-  
-  
+  if(!"rnaturalearthhires" %in% installed){
+    remotes::install_github("ropensci/rnaturalearthhires")
+  }
   # Update only the packages listed (not the entire library)
   update.packages(oldPkgs = packages_list, ask = FALSE)
   
@@ -57,13 +58,14 @@ packages_list <- c(
   "fmesher",
   "ncdf4",
   "pak",
+  "patchwork",
   "raster",
   "readr",
   "readxl",
   "remotes",
-  "rlang",
   "rmdformats",
   "rnaturalearth",
+  "rnaturalearthhires",
   "scales",
   "sdmTMB",
   "sdmTMBextra",     # ! Load sdmTMBextra after sdmTMB
