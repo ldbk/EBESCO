@@ -10,6 +10,10 @@
   # ------------------------------------------------------------------------------#
   
   
+  # Load locally cached Natural Earth land polygons
+  land_ne <- readRDS("01_DATA/ne_10m_land.rds")
+  
+  
   catch_ECGFS <- read_delim("01_DATA/survey/ECGFS/CGFS_1988_2024_ELFIC.V1.4_catch_2025-03-28.csv",
                             delim = ";", escape_double = FALSE, trim_ws = TRUE, show_col_types = FALSE)
   
@@ -203,7 +207,5 @@
     dplyr::select(year, X, Y, lat, lon, presence_absence, densityKgKm2, totalWeightKg, sweptAreaKm2) %>%
     mutate(year = factor(year)) 
   
-
-
-
-
+  
+  
