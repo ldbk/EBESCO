@@ -4,7 +4,7 @@
 # and summarises the frequency of significant spatial autocorrelation.
 
 
-compute_residuals_Moran_DHARMa <- function(models_converged) {
+compute_residuals_Moran <- function(models_converged) {
   
   set.seed(123)
   
