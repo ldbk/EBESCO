@@ -13,7 +13,7 @@ get_land_region <- function(grid_pred){
   ymin_plot <- range(grid_pred$lat,na.rm=TRUE)[1]-res_deg_lat
   ymax_plot <- range(grid_pred$lat,na.rm=TRUE)[2]+res_deg_lat
   
-  land <- rnaturalearth::ne_download(scale="large",type="land",category="physical",returnclass="sf") %>%
+  land <- land_ne %>%
     sf::st_transform(4326) %>%
     sf::st_crop(xmin=xmin_plot,ymin=ymin_plot,xmax=xmax_plot,ymax=ymax_plot)
   

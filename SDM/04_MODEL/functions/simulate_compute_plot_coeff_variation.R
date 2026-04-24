@@ -74,7 +74,7 @@ get_land_region <- function(grid_df) {
   ymin_plot <- range(grid_df$lat)[1] - res_deg_lat
   ymax_plot <- range(grid_df$lat)[2] + res_deg_lat
   
-  land <- ne_download(scale = "large", type = "land", category = "physical", returnclass = "sf") %>%
+  land <- land_ne %>%
     st_transform(4326) %>%
     st_crop(xmin = xmin_plot, ymin = ymin_plot, xmax = xmax_plot, ymax = ymax_plot)
   
