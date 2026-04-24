@@ -27,9 +27,7 @@ source(here::here('04_MODEL/packages/packages.R'))
 # sp_scientific <- "Hippocampus hippocampus"
 # sp_scientific <- "Merluccius merluccius"       # European hake / Merlu européen
 # sp_scientific <- "Micromesistius poutassou"    # Blue whiting / Merlan bleu
-# sp_scientific <- "Pollachius pollachius"       # Pollack / Lieu jaune
-# sp_scientific <- "Solea solea"                 # Common sole / Sole commune
-# sp_scientific <- "Squalus acanthias"           # Spiny dogfish / Aiguillat commun
+sp_scientific <- "Solea solea"                 # Common sole / Sole commune
 # sp_scientific <- "Trachurus trachurus"         # Atlantic horse mackerel / Chinchard commun
 # sp_scientific <- "Zeus faber"                  # John Dory / Saint-Pierre
 
@@ -64,6 +62,7 @@ west_params <- list(cutoff_values = c(1, 2, 3, 5, 7, 10, 15, 20),
 east_params <- list(cutoff_values = c(1, 2, 3, 5, 7, 10, 15, 20),
                     max_edge_in = c(5, 10, 15, 25, 35, 50, 75, 100),
                     max_edge_out = rep(100, 8))
+
 
 # ------------------------------------------------------------------------------#
 # LOAD MSA FUNCTIONS 
@@ -162,31 +161,17 @@ for (region_name in names(regions_valid)) {
   all_params <- dplyr::bind_rows(params_simple, params_barrier, params_boundary)
   
   
-  options(future.globals.maxSize = 2 * 1024^3)  # 2 Go
-  
   moran_simple <- if (!is.null(models_converged_simple)) {
-    compute_residuals_Moran_parallel(models_converged_simple)
+    compute_residuals_Moran(models_converged_simple)
   } else NULL
-  
+
   moran_barrier <- if (!is.null(models_converged_barrier)) {
-    compute_residuals_Moran_parallel(models_converged_barrier)
+    compute_residuals_Moran(models_converged_barrier)
   } else NULL
-  
+
   moran_boundary <- if (!is.null(models_converged_boundary)) {
-    compute_residuals_Moran_parallel(models_converged_boundary)
+    compute_residuals_Moran(models_converged_boundary)
   } else NULL
-  
-  # moran_simple <- if (!is.null(models_converged_simple)) {
-  #   compute_residuals_Moran(models_converged_simple)
-  # } else NULL
-  # 
-  # moran_barrier <- if (!is.null(models_converged_barrier)) {
-  #   compute_residuals_Moran(models_converged_barrier)
-  # } else NULL
-  # 
-  # moran_boundary <- if (!is.null(models_converged_boundary)) {
-  #   compute_residuals_Moran(models_converged_boundary)
-  # } else NULL
 
   all_moran <- dplyr::bind_rows(moran_simple, moran_barrier, moran_boundary)
   
