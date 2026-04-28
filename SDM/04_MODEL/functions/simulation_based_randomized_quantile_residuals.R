@@ -69,11 +69,6 @@ rmse_mae_from_sim <- function(converged_models, region_name = "region") {
       dharma_QQplot_list[[model_id]] <- dharma_residuals(simulated_data, 
                                                          fitted_model, 
                                                          return_DHARMa = TRUE)
-      
-      dharma_Moranplot_list[[model_id]] <- DHARMa::testSpatialAutocorrelation(
-        simulatedResponse = dharma_QQplot_list[[model_id]]$scaledResiduals, 
-        x = data_CGFS$X, 
-        y = data_CGFS$Y)
     }
   }
   
@@ -82,6 +77,3 @@ rmse_mae_from_sim <- function(converged_models, region_name = "region") {
                      Moran_plot = dharma_Moranplot_list))
   
 }
-
-out_east <- rmse_mae_from_sim(Solea_solea_converged_models, region_name = "east")
-plot(out_east$dharma$east_densityKgKm2_deltalognormal)

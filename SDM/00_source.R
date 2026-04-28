@@ -29,9 +29,11 @@ source(here::here('04_MODEL/packages/packages.R'))
 # sp_scientific <- "Pollachius pollachius"       # Pollack / Lieu jaune
 # sp_scientific <- "Squalus acanthias"           # Spiny dogfish / Aiguillat commun
 # sp_scientific <- "Trachurus trachurus"         # Atlantic horse mackerel / Chinchard commun
-sp_scientific <- "Zeus faber"                  # John Dory / Saint-Pierre
+# sp_scientific <- "Zeus faber"                  # John Dory / Saint-Pierre
 # sp_scientific <- "Clupea harengus"             # Atlantic herring / Hareng de l’Atlantique
-# sp_scientific <- "Solea solea"                 # Common sole / Sole commune
+sp_scientific <- "Solea solea"                 # Common sole / Sole commune
+
+sp_name_safe <- gsub("[^A-Za-z0-9_]", "_", sp_scientific)
 
 
 ## Define study refions for the species 
@@ -60,16 +62,17 @@ source(here::here('04_MODEL/functions/compute_plot_residuals_withoutRF.R'))
 # ------------------------------------------------------------------------------#
 ####  CREATE THE MESH  #### 
 # ------------------------------------------------------------------------------#
-source(here::here('04_MODEL/functions/create_mesh.R'))
+source(here::here('04_MODEL/functions/create_mesh_species.R'))
+source(here::here('04_MODEL/functions/MSA_add_boundary_to_mesh.R'))
 
 mesh_by_region <- list()
 # If West_English_Channel is TRUE, build the west mesh
 if (isTRUE(West_English_Channel)) {
-  mesh_by_region$west <- create_mesh_by_region(region_name = "west")
+  mesh_by_region$west <- create_mesh_by_region(region_name = "west", sp_name_safe)
 }
 # If East_English_Channel is TRUE, build the east mesh
 if (isTRUE(East_English_Channel)) {
-  mesh_by_region$east <- create_mesh_by_region(region_name = "east")
+  mesh_by_region$east <- create_mesh_by_region(region_name = "east", sp_name_safe)
 }
 
 
@@ -84,6 +87,20 @@ fixed_effect <- "1"
 
 source(here::here("04_MODEL/functions/fit_candidate_models.R"))
 
+# object to store fitted models
+fitted_models_by_region <- list()
+
+if (isTRUE(East_English_Channel)) {
+  fitted_models_by_region$east <- fit_candidate_models(data_CGFS = data_CGFS_east, 
+                                                       mesh = mesh_by_region$east$mesh, 
+                                                       region_name = "east")
+}
+
+if (isTRUE(West_English_Channel)) {
+  fitted_models_by_region$west <- fit_candidate_models(data_CGFS = data_CGFS_west, 
+                                                       mesh = mesh_by_region$west$mesh, 
+                                                       region_name = "west")
+}
 
 # ------------------------------------------------------------------------------#
 #### SANITY FILTER FITTED MODELS ####
@@ -110,10 +127,13 @@ source(here::here("04_MODEL/functions/get_converged_models.R"))
 converged_models <- get_converged_models(sanity_by_region)
 
 source(here::here("04_MODEL/functions/extract_parameter_estimates.R"))
-params_west <- extract_params_converged_models(converged_models, region = "west")
-params_east <- extract_params_converged_models(converged_models, region = "east")
+params_west <- extract_params_converged_models(converged_models, region = "west")%>%
+  mutate(region = "west")
 
-params_all <- bind_rows(params_east, params_west) %>%
+params_east <- extract_params_converged_models(converged_models, region = "east")%>%
+  mutate(region = "east")
+
+params_all <- bind_rows(params_west, params_east) %>%
   mutate(region = factor(region, levels = c("west", "east")))
 
 
@@ -215,7 +235,6 @@ source(here::here("04_MODEL/functions/map_predictions_common_fill_limits.R"))
 ####  SIMULATE & COMPUTE, PLOT COEFFICIENT OF VARIATION ####
 # ------------------------------------------------------------------------------#
 source(here::here("04_MODEL/functions/simulate_compute_plot_coeff_variation.R"))
-Solea_solea_converged_models$east$totalWeightKg$tweedie
 
 # ------------------------------------------------------------------------------#
 ####  SAVE OUTPUTS ####  

@@ -50,6 +50,7 @@ install_or_update_packages <- function(packages_list){
 
 packages_list <- c(
   "ape",
+  "DHARMa",
   "dplyr",
   "ggOceanMaps",
   "ggspatial",

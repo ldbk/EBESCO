@@ -15,7 +15,12 @@ compute_cAIC_weights <- function(converged_models, region_name = "region") {
     models_by_family <- models_by_response[[response_name]]
     
     # Compute conditional AIC for each family
-    AIC_values <- sapply(models_by_family, sdmTMB::cAIC)
+    AIC_values <- vapply(models_by_family,
+      function(current_model) {
+        val <- sdmTMB::cAIC(current_model, what = "cAIC")
+        as.numeric(val)
+      },
+      numeric(1))
     
     # Delta AIC
     deltaAIC <- AIC_values - min(AIC_values)

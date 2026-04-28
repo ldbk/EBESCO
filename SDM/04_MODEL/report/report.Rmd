@@ -318,14 +318,6 @@ sigma_E: marginal standard deviation of the spatio-temporal random field (epsilo
 <br/>
 
 
-## 3.3. DHARMA 
-
-Observation–prediction discrepancies are projected into a standardized normal space, independently of the probability family.
-A randomized quantile residual represents the standardized position of an observation within the model’s predictive distribution.
-
-<br/>
-<br/>
-
 ## 3.3. Data simulations from fitted models - DHARMa residuals, RMSE, MAE
 
 Simulation of 1000 datasets from fitted models and then:  
@@ -432,7 +424,7 @@ if (isTRUE(East_English_Channel)) {
 <br/>
 <br/>
 
-## 3.5. AIC weights
+## 3.4. AIC weights
 
 ```{r echo=FALSE, fig.height=4, fig.width=10, message=FALSE, warning=FALSE}
 
@@ -510,6 +502,7 @@ if (isTRUE(West_English_Channel)) {
 
 ```
 
+<br/>
 
 ```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
 
@@ -816,6 +809,10 @@ west_plot_dgmpl_est <- plots_cv_all$west$totalWeightKg[["deltagammapoissonlink"]
 if (!is.null(west_plot_dgmpl_est)) west_plot_dgmpl_est
 ```
 ```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+west_plot_dlnpl_est <- plots_cv_all$west$totalWeightKg[["deltalognormalpoissonlink"]]
+if (!is.null(west_plot_dlnpl_est)) west_plot_dlnpl_est
+```
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
 west_plot_tw_est <- plots_cv_all$west$densityKgKm2[["tweedie"]]
 if (!is.null(west_plot_tw_est)) west_plot_tw_est
 ```
@@ -859,6 +856,10 @@ if (!is.null(east_plot_dln_est)) east_plot_dln_est
 ```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
 east_plot_dgmpl_est <- plots_cv_all$east$totalWeightKg[["deltagammapoissonlink"]]
 if (!is.null(east_plot_dgmpl_est)) east_plot_dgmpl_est
+```
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+east_plot_dlnpl_est <- plots_cv_all$east$totalWeightKg[["deltalognormalpoissonlink"]]
+if (!is.null(east_plot_dlnpl_est)) east_plot_dlnpl_est
 ```
 ```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
 east_plot_tw_est <- plots_cv_all$east$densityKgKm2[["tweedie"]]

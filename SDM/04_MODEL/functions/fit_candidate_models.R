@@ -3,7 +3,7 @@
 # ============================================================================== 
 
 # Function that fits candidate models by region
-fit_candidate_models <- function(data_CGFS, bspde, region_name = "region") {
+fit_candidate_models <- function(data_CGFS, mesh, region_name = "region") {
   
   
   # Specific case : probability of presence = 1 
@@ -84,7 +84,7 @@ fit_candidate_models <- function(data_CGFS, bspde, region_name = "region") {
         args <- list(
           data = data_CGFS,
           formula = model_formula,
-          mesh = bspde,
+          mesh = mesh,
           family = families_chosen[[family_name]],
           spatial = "on",
           time = "year",
@@ -118,23 +118,4 @@ fit_candidate_models <- function(data_CGFS, bspde, region_name = "region") {
   
 }
 
-
-# ------------------------------------------------------------------------------#
-#### store fitted models by region ####
-# ------------------------------------------------------------------------------#
-
-# object to store fitted models
-fitted_models_by_region <- list()
-
-if (isTRUE(East_English_Channel)) {
-  fitted_models_by_region$east <- fit_candidate_models(data_CGFS = data_CGFS_east, 
-                                                       bspde = mesh_by_region$east$bspde, 
-                                                       region_name = "east")
-}
-
-if (isTRUE(West_English_Channel)) {
-  fitted_models_by_region$west <- fit_candidate_models(data_CGFS = data_CGFS_west, 
-                                                       bspde = mesh_by_region$west$bspde, 
-                                                       region_name = "west")
-}
 
