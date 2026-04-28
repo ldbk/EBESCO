@@ -218,6 +218,42 @@ names(bathy_EC_depth) <- "depth"
 #          varname = "depth", unit = "m", overwrite=TRUE)
 
 
+# ------------------------------------------------------------------------------#
+#### ENTIRE EXTENTED ENGLISH CHANNEL BATHYMETRY #### 
+# ------------------------------------------------------------------------------#
+
+
+# Load bathymetry raster as SpatRaster
+bathy_emod <- terra::rast(here("01_DATA", "bathymetry", "E4_2024.nc", "E4_2024.nc"), sub = "elevation")
+
+# Load Eastern English Channel shapefile as SpatVector
+EC <- terra::vect(here("01_DATA", "shapefiles", "English_Channel_extension", "English_Channel_extension.shp"))
+
+# Reproject shapefile to match raster CRS 
+EC_shapefile  <- terra::project(EC, bathy_emod)
+
+# Crop to polygon extent 
+bathy_EC_crop <- terra::crop(bathy_emod, EC_shapefile)
+
+# Mask with the polygon 
+bathy_EC <- terra::mask(bathy_EC_crop, EC_shapefile)
+
+# depth in absolute value
+bathy_extendedEC_depth <- terra::app(bathy_EC, fun = abs)
+names(bathy_extendedEC_depth) <- "depth"
+
+# # Plot
+plot(bathy_extendedEC_depth, main = "Bathymetry")
+
+# Save depth raster both as TIFF and NetCDF
+# writeRaster(bathy_extendedEC_depth,
+#             here("01_DATA/bathymetry/extendedEC_Bathy/Bathy_extended_English_Channel.tif"),
+#             overwrite = TRUE)
+# 
+# writeCDF(bathy_extendedEC_depth,
+#          filename = here("01_DATA/bathymetry/extendedEC_Bathy/Bathy_extended_English_Channel.nc"),
+#          varname = "depth", unit = "m", overwrite=TRUE)
+
 
 # ------------------------------------------------------------------------------#
 #### ENTIRE ENGLISH CHANNEL SUBSTRATE (7 levels) #### 
