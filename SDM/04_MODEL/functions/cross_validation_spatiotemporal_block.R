@@ -7,11 +7,11 @@ spatiotemp_blocked_CV <- function(converged_models, region_name) {
   
   if (region_name == "west") {
     data_CGFS <- data_CGFS_west
-    mesh = mesh_by_region$west$bspde
+    mesh = mesh_by_region$west$mesh
     data_folds <- readRDS(here("01_DATA/folds_CV/west_3folds.rds"))
   } else if (region_name == "east") {
     data_CGFS <- data_CGFS_east
-    mesh = mesh_by_region$east$bspde
+    mesh = mesh_by_region$east$mesh
     data_folds <- readRDS(here("01_DATA/folds_CV/east_4folds.rds"))
   }
   
@@ -26,8 +26,8 @@ spatiotemp_blocked_CV <- function(converged_models, region_name) {
     mutate(year = as.factor(year)) %>%
     left_join(data_folds %>% 
                 mutate(year = as.factor(year))%>%
-                dplyr::select(year, X, Y, lon, lat, fold_id),
-              by = c("year", "X", "Y", "lon", "lat"))
+                dplyr::select(year, lon, lat, fold_id),
+              by = c("year", "lon", "lat"))
   
   k_folds <- length(unique(data_CV$fold_id))
 
@@ -110,21 +110,6 @@ spatiotemp_blocked_CV <- function(converged_models, region_name) {
 }
 
 
-blockedCV_by_region <- list()
-
-if (isTRUE(West_English_Channel)) {
-  blockedCV_by_region$west <- spatiotemp_blocked_CV(converged_models, "west")
-}
-
-if (isTRUE(East_English_Channel)) {
-  blockedCV_by_region$east <-  spatiotemp_blocked_CV(converged_models, "east")
-}
-
-
-
-
-
-
 # if (isTRUE(West_English_Channel)) {
 #   
 #   blockedCV_summary_west <- imap_dfr(blockedCV_by_region$west$cv_outputs,
@@ -156,6 +141,3 @@ if (isTRUE(East_English_Channel)) {
 #                                 })
 #   
 # }
-
-
-

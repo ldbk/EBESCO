@@ -1,11 +1,29 @@
 
 
+operation_ECGFS <- read_delim("01_DATA/survey/ECGFS/CGFS_1988_2024_ELFIC.V1.4_operation_2025-03-28.csv",
+                              delim = ";", escape_double = FALSE, trim_ws = TRUE, show_col_types = FALSE)
+
+operation_ECGFS <- operation_ECGFS%>% distinct()%>% filter(year >= 2018)%>%
+  mutate(lat = (endLatDD + startLatDD)/2,
+         lon = (endLongDD + startLongDD)/2)%>%
+  dplyr::select(lon, lat, year) %>% distinct()
+
+
+operation_WCGFS <-  read_delim("01_DATA/survey/WCGFS/WCGFS_2018_2024_ELFIC.V1.5_operation_2025-03-31.csv", 
+                               delim = ";", escape_double = FALSE, trim_ws = TRUE, show_col_types = FALSE)
+
+operation_WCGFS <- operation_WCGFS%>% distinct()%>%
+  mutate(lat = (endLatDD + startLatDD)/2,
+         lon = (endLongDD + startLongDD)/2)%>%
+  dplyr::select(lon, lat, year) %>% distinct()
+
+
 
 set.seed(123)
 
-east_4folds <- data_CGFS_east %>%
+east_4folds <- operation_ECGFS %>%
   group_by(year) %>%   # annual spatial clustering 
-  mutate(spatial_zone = kmeans(cbind(X, Y), 
+  mutate(spatial_zone = kmeans(cbind(lon, lat), 
                                centers = 4,      # centers = 4 : 4 clusters = 4 zones spatiales par année
                                nstart = 1000)      # k-means 40 fois avec 40 initialisations différentes des centres
          $cluster) %>%                           # ID de zone (1 à 4)
@@ -28,9 +46,9 @@ east_4folds %>%
   print(n = Inf)
 
 ggplot(east_4folds) +
-  geom_point(aes(x = X, y = Y, color = factor(spatial_zone)),
+  geom_point(aes(x = lon, y = lat, color = factor(spatial_zone)),
              size = 5, alpha = 0.7) +
-  geom_text(aes(x = X, y = Y, label = fold_id),
+  geom_text(aes(x = lon, y = lat, label = fold_id),
             size = 3) +
   facet_wrap(~ year, nrow=2) +
   theme_bw() +
@@ -40,9 +58,9 @@ ggplot(east_4folds) +
 
 
 
-west_3folds <- data_CGFS_west %>%
+west_3folds <- operation_WCGFS %>%
   group_by(year) %>%
-  mutate(spatial_zone = kmeans(cbind(X, Y), centers = 3, nstart = 1000)$cluster) %>%
+  mutate(spatial_zone = kmeans(cbind(lon, lat), centers = 3, nstart = 1000)$cluster) %>%
   ungroup() %>%
   mutate(year = as.integer(as.character(year))) %>%
   mutate(year_index = dense_rank(year),
@@ -62,9 +80,9 @@ west_3folds %>%
   print(n = Inf)
 
 ggplot(west_3folds) +
-  geom_point(aes(x = X, y = Y, color = factor(spatial_zone)),
+  geom_point(aes(x = lon, y = lat, color = factor(spatial_zone)),
              size = 5, alpha = 0.7) +
-  geom_text(aes(x = X, y = Y, label = fold_id),
+  geom_text(aes(x = lon, y = lat, label = fold_id),
             size = 3) +
   facet_wrap(~ year, nrow=2) +
   theme_bw() +

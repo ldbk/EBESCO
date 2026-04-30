@@ -53,6 +53,7 @@ packages_list <- c(
   "DHARMa",
   "dplyr",
   "ggOceanMaps",
+  "ggpubr",
   "ggspatial",
   "here",
   "inlabru",

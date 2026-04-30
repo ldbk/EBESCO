@@ -34,8 +34,7 @@ rmse_mae_from_sim <- function(converged_models, region_name = "region") {
   # Store results here
   metrics_list <- list()  
   dharma_QQplot_list <- list()
-  dharma_Moranplot_list <- list()
-  
+
   # --------------------------------------------------------------------------- #
   # Loop over response variables
   # --------------------------------------------------------------------------- #
@@ -73,7 +72,6 @@ rmse_mae_from_sim <- function(converged_models, region_name = "region") {
   }
   
   list(metrics = dplyr::bind_rows(metrics_list),
-       dharma = list(residuals = dharma_QQplot_list,
-                     Moran_plot = dharma_Moranplot_list))
+       dharma = dharma_QQplot_list)
   
 }

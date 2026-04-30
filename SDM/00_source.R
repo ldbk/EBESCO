@@ -28,10 +28,10 @@ source(here::here('04_MODEL/packages/packages.R'))
 # sp_scientific <- "Micromesistius poutassou"    # Blue whiting / Merlan bleu
 # sp_scientific <- "Pollachius pollachius"       # Pollack / Lieu jaune
 # sp_scientific <- "Squalus acanthias"           # Spiny dogfish / Aiguillat commun
-# sp_scientific <- "Trachurus trachurus"         # Atlantic horse mackerel / Chinchard commun
+sp_scientific <- "Trachurus trachurus"         # Atlantic horse mackerel / Chinchard commun
 # sp_scientific <- "Zeus faber"                  # John Dory / Saint-Pierre
 # sp_scientific <- "Clupea harengus"             # Atlantic herring / Hareng de l’Atlantique
-sp_scientific <- "Solea solea"                 # Common sole / Sole commune
+# sp_scientific <- "Solea solea"                 # Common sole / Sole commune
 
 sp_name_safe <- gsub("[^A-Za-z0-9_]", "_", sp_scientific)
 

@@ -324,12 +324,12 @@ Simulation of 1000 datasets from fitted models and then:
 * plot DHARma residuals  
 * plot DHARMa Moran's I test for distance-based autocorrelation  
 * compute RMSE & MAE between observed and simulated data  
- 
+
 
 ```{r echo=FALSE, fig.height=10, fig.width=10, message=FALSE, warning=FALSE}
 
 if (isTRUE(West_English_Channel)) {
-  metrics_west <- simulation_errors_by_region$west
+  metrics_west <- simulation_errors_by_region$west$metrics
   
   mean_totalWeightKg_west <- mean(data_CGFS_west$totalWeightKg)
   mean_densityKgKm2_west <- mean(data_CGFS_west$densityKgKm2)
@@ -377,7 +377,7 @@ if (isTRUE(West_English_Channel)) {
 ```{r echo=FALSE, fig.height=10, fig.width=10, message=FALSE, warning=FALSE}
 
 if (isTRUE(East_English_Channel)) {
-  metrics_east <- simulation_errors_by_region$east
+  metrics_east <- simulation_errors_by_region$east$metrics
 
   mean_totalWeightKg_east <- mean(data_CGFS_east$totalWeightKg)
   mean_densityKgKm2_east <- mean(data_CGFS_east$densityKgKm2)
@@ -465,9 +465,9 @@ if (isTRUE(West_English_Channel)) {
 
 west_3folds <- readRDS(here("01_DATA/folds_CV/west_3folds.rds"))
 ggplot(west_3folds) +
-  geom_point(aes(x = X, y = Y, color = factor(spatial_zone)),
+  geom_point(aes(x = lon, y = lat, color = factor(spatial_zone)),
              size = 5, alpha = 0.7) +
-  geom_text(aes(x = X, y = Y, label = fold_id),
+  geom_text(aes(x = lon, y = lat, label = fold_id),
             size = 3) +
   facet_wrap(~ year, nrow=2) +
   theme_bw() +
@@ -510,9 +510,9 @@ if (isTRUE(East_English_Channel)) {
   
 east_4folds <- readRDS(here("01_DATA/folds_CV/east_4folds.rds"))
 ggplot(east_4folds) +
-  geom_point(aes(x = X, y = Y, color = factor(spatial_zone)),
+  geom_point(aes(x = lon, y = lat, color = factor(spatial_zone)),
              size = 5, alpha = 0.7) +
-  geom_text(aes(x = X, y = Y, label = fold_id),
+  geom_text(aes(x = lon, y = lat, label = fold_id),
             size = 3) +
   facet_wrap(~ year, nrow=2) +
   theme_bw() +
@@ -873,5 +873,60 @@ if (!is.null(east_plot_dgm_est)) east_plot_dgm_est
 east_plot_dln_est <- plots_cv_all$east$densityKgKm2[["deltalognormal"]]
 if (!is.null(east_plot_dln_est)) east_plot_dln_est
 ```
+<br/>
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 
+cv_df <- imap_dfr(sim_cv_all, function(region_list, region_name) {
+  imap_dfr(region_list, function(response_list, response_name) {
+    imap_dfr(response_list, function(df, family_name) {
+      df %>%
+        mutate(region = region_name, 
+               response = response_name, 
+               family = family_name)
+    })
+  })
+})
+```
 
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) {
+  
+  west_CV <- ggplot(cv_df %>% filter(region == "west"),
+                    aes(x = family, y = cv, color = family)) +
+    scale_y_log10() +
+    geom_boxplot(outlier.alpha = 0.2) +
+    geom_violin(alpha = 0.1)+
+    facet_wrap(~ response, scales = "free_y") +
+    scale_color_manual(values = family_colors) +
+    labs(x = NULL, y = "Coefficient of variation", title = "West CGFS",
+         subtitle = "Prediction uncertainty by distribution family") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.position = "none")
+  
+  west_CV
+}
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) {
+  
+east_CV <- ggplot(cv_df %>% filter(region == "east"),
+                  aes(x = family, y = cv, color = family)) +
+  scale_y_log10() +
+  geom_boxplot(outlier.alpha = 0.2) +
+  geom_violin(alpha = 0.1)+
+  facet_wrap(~ response, scales = "free_y") +
+  scale_color_manual(values = family_colors) +
+  labs(x = NULL, y = "Coefficient of variation", title = "East CGFS",
+    subtitle = "Prediction uncertainty by distribution family") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")
+
+east_CV
+}
+```

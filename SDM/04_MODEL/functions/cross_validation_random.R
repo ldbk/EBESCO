@@ -8,10 +8,10 @@ random_CV <- function(converged_models, region_name) {
   
   if (region_name == "west") {
     data_CGFS <- data_CGFS_west
-    mesh = mesh_by_region$west$bspde
+    mesh = mesh_by_region$west$mesh
   } else if (region_name == "east") {
     data_CGFS <- data_CGFS_east
-    mesh = mesh_by_region$east$bspde
+    mesh = mesh_by_region$east$mesh
   }
   
   # Create the offset column (sdmTMB_cv() expects offset = "column name")
@@ -90,15 +90,6 @@ random_CV <- function(converged_models, region_name) {
 }
 
 
-randomCV_by_region <- list()
-
-if (isTRUE(West_English_Channel)) {
-  randomCV_by_region$west <- random_CV(converged_models, "west")
-}
-
-if (isTRUE(East_English_Channel)) {
-  randomCV_by_region$east <-random_CV(converged_models, "east")
-}
 
 
 
