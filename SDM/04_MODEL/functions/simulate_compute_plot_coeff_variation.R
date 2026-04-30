@@ -11,7 +11,7 @@ grids_by_region <- list(
 )
 
 # ------------------------------------------------------------------------------#
-# run nsim predictions on response scale and compute CV
+# function to run nsim predictions on response scale and compute CV
 # ------------------------------------------------------------------------------#
 
 simulate_cv <- function(model, grid) {
@@ -31,7 +31,7 @@ simulate_cv <- function(model, grid) {
 }
 
 # ------------------------------------------------------------------------------#
-# Simulations for all valid models
+# Apply simulations function for all valid models
 # ------------------------------------------------------------------------------#
 sim_cv_all <- list()
 
@@ -60,7 +60,7 @@ cv_range_global <- range(unlist(lapply(sim_cv_all, function(region_list) {
 })))
 
 # ------------------------------------------------------------------------------#
-# Build land polygons + bounds per region 
+# Build land polygons + bounds per region (for maps)
 # ------------------------------------------------------------------------------#
 get_land_region <- function(grid_df) {
   
@@ -87,14 +87,14 @@ get_land_region <- function(grid_df) {
 # Build land objects once per region 
 land_by_region <- list()
 for (region in names(sim_cv_all)) {
-  first_resp <- names(sim_cv_all[[region]])[1]
-  first_mod <- names(sim_cv_all[[region]][[first_resp]])[1]
-  grid_df0 <- sim_cv_all[[region]][[first_resp]][[first_mod]]
-  land_by_region[[region]] <- get_land_region(grid_df0)
+  first_response <- names(sim_cv_all[[region]])[1]
+  first_model <- names(sim_cv_all[[region]][[first_response]])[1]
+  grid_region <- sim_cv_all[[region]][[first_response]][[first_model]]
+  land_by_region[[region]] <- get_land_region(grid_region)
 }
 
 # ------------------------------------------------------------------------------#
-# Plot CV map 
+# Plot function for coefficient variation map 
 # ------------------------------------------------------------------------------#
 plot_cv_map <- function(data, land_obj, subtitle, fill_limits) {
   
@@ -118,7 +118,7 @@ plot_cv_map <- function(data, land_obj, subtitle, fill_limits) {
 
 
 # ------------------------------------------------------------------------------#
-# Create CV plots for every region/response/model
+# Apply plot CV function to create CV plots for every region/response/model
 # ------------------------------------------------------------------------------#
 plots_cv_all <- list()
 
@@ -142,37 +142,6 @@ for (region in names(sim_cv_all)) {
   }
 }
 
-
-# ------------------------------------------------------------------------------
-# Example access:
-# plots_cv_all$east$totalWeightKg$deltagammapoissonlink
-# plots_cv_all$west$totalWeightKg$lognormal
-# ------------------------------------------------------------------------------
-
-
-
-# ln <- as.data.frame(sim_cv_all$west$totalWeightKg$lognormal)
-# ln <- ln %>% rename(cv_ln = cv)
-# gm <- as.data.frame(sim_cv_all$west$totalWeightKg$gamma)
-# gm <- gm %>% rename(cv_gm = cv)
-# 
-# gm_ln <- ln %>% left_join(gm, by = join_by(lon, lat, X, Y, year))
-# 
-# gm_ln <- gm_ln %>% mutate(delta_cv = cv_ln - cv_gm)
-# 
-# ggplot(gm_ln, aes(lon, lat, fill = delta_cv)) +
-#   geom_raster() +
-#   geom_sf(data = land_obj$land, fill = "grey80", inherit.aes = FALSE, color = "grey80") +
-#   scale_y_continuous(breaks = pretty_breaks(n = 3)) +
-#   scale_x_continuous(breaks = pretty_breaks(n = 4)) +
-#   coord_sf(xlim = land_obj$xlim, ylim = land_obj$ylim, expand = FALSE) +
-#   facet_wrap(~year, nrow = 2) +
-#   theme(panel.grid = element_blank(),
-#         panel.background = element_rect(fill = "white", colour = NA),
-#         panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
-#         strip.background = element_rect(fill = "grey40", color = "white"),
-#         strip.text = element_text(color = "white", face = "bold")) +
-#   scale_fill_gradient2()
 
 
 
