@@ -1,0 +1,1105 @@
+---
+title: "Modeling the distribution of commercially important, sound-producing species using CGFS survey data"
+date: "`r Sys.Date()`"
+output: 
+  rmdformats::downcute:
+  highlight: zenburn
+html_document :
+  toc: true
+toc_float: true
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = getwd())                                # garde le working dir actif
+knitr::opts_knit$set(envir = globalenv())                               # utilise l'env global
+knitr::opts_chunk$set(echo = FALSE, message=FALSE,warning=FALSE)
+```
+
+```{r include=FALSE}
+
+family_colors <- c(
+  "tweedie" = "#66c2a5",
+  "deltagamma" = "#fc8d62",
+  "deltalognormal" = "#99CCFF",
+  "deltagammapoissonlink" = "#e78ac3",
+  "deltalognormalpoissonlink" = "#8da0cb",
+  "gamma" = "#ffd92f",
+  "lognormal" = "#a6d854"
+)
+
+```
+
+# 1. Data
+
+<br/>
+ 
+```{r echo=FALSE}
+
+print(sp_scientific)
+
+```
+<br/>
+
+
+```{r echo=FALSE, warning=FALSE}
+
+knitr::include_graphics(here("01_DATA", "prop_pres_sp.png"))
+
+```
+
+<br/>
+
+## 1.1. CGFS data : biomass of *`r sp_scientific`* 
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+
+plot_west <- NULL
+plot_east <- NULL
+
+if (isTRUE(West_English_Channel)) {
+
+EC_sf <- vect(here("01_DATA", "shapefiles", "Western_English_Channel_extension", 
+                        "Western_English_Channel_extension.shp"))%>%
+  sf::st_as_sf() %>%
+  sf::st_transform(4326)
+
+if (sp_scientific == "Trachurus trachurus") {
+  plot_west <- ggOceanMaps::basemap(data = EC_sf) +   
+  ggplot2::geom_sf(data = EC_sf, fill = NA) +        
+  ggspatial::geom_spatial_point(data = data_CGFS_west, 
+                     aes(x = lon, y = lat, size = totalWeightKg),
+                     color = "blue", alpha = 0.6) +
+  scale_size_continuous(name ="Biomass (kg)") +
+  facet_wrap(~ year, nrow = 2) +
+  labs(x = NULL, y = NULL)
+} else {
+ plot_west <- ggOceanMaps::basemap(data = EC_sf) +   
+  ggplot2::geom_sf(data = EC_sf, fill = NA) +        
+  ggspatial::geom_spatial_point(data = data_CGFS_west, 
+                     aes(x = lon, y = lat, 
+                         color = factor(presence_absence), 
+                         size  = totalWeightKg), 
+                     alpha = 0.6) +
+  scale_color_manual(values = c("0" = "red", "1" = "blue"), 
+                     labels = c("Absence", "Presence"), 
+                     name = "Occurence") +
+  scale_size_continuous(name ="Biomass (kg)") +
+  facet_wrap(~ year, nrow=2) +
+  labs(x=NULL, y=NULL) 
+}
+}
+
+if (isTRUE(East_English_Channel)) {
+
+EC_sf <- vect(here("01_DATA", "shapefiles", "split_English_Channel", 
+                    "east_English_Channel.shp"))%>%
+  sf::st_as_sf() %>%
+  sf::st_transform(4326)
+  
+plot_east <- ggOceanMaps::basemap(data = EC_sf) +   
+  ggplot2::geom_sf(data = EC_sf, fill = NA) +        
+  ggspatial::geom_spatial_point(data = data_CGFS_east, 
+                     aes(x = lon, y = lat, 
+                         color = factor(presence_absence), 
+                         size  = totalWeightKg), 
+                     alpha = 0.6) +
+  scale_color_manual(values = c("0" = "red", "1" = "blue"), 
+                     labels = c("Absence", "Presence"), 
+                     name = "Occurence") +
+  scale_size_continuous(name ="Biomass (kg)") +
+  facet_wrap(~ year, nrow=2) +
+  labs(x=NULL, y=NULL)
+
+}
+
+patchwork::wrap_plots(Filter(Negate(is.null), list(plot_west, plot_east)), ncol = 1)
+
+```
+
+<br/>  
+
+## 1.2. CGFS data : density of biomass of *`r sp_scientific`* 
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+
+plot_west <- NULL
+plot_east <- NULL
+
+if (isTRUE(West_English_Channel)) {
+
+  EC_sf <- vect(here("01_DATA", "shapefiles", "Western_English_Channel_extension", 
+                        "Western_English_Channel_extension.shp"))%>%
+  sf::st_as_sf() %>%
+  sf::st_transform(4326)
+  
+if (sp_scientific == "Trachurus trachurus") {
+  plot_west <- ggOceanMaps::basemap(data = EC_sf) +   
+  ggplot2::geom_sf(data = EC_sf, fill = NA) +        
+  ggspatial::geom_spatial_point(data = data_CGFS_west, 
+                     aes(x = lon, y = lat, size = densityKgKm2),
+                     color = "blue", alpha = 0.6) +
+  scale_size_continuous(name ="Biomass density (kg/km²)") +
+  facet_wrap(~ year, nrow = 2) +
+  labs(x = NULL, y = NULL)
+} else {
+ plot_west <- ggOceanMaps::basemap(data = EC_sf) +   
+  ggplot2::geom_sf(data = EC_sf, fill = NA) +        
+  ggspatial::geom_spatial_point(data = data_CGFS_west, 
+                     aes(x = lon, y = lat, 
+                         color = factor(presence_absence), 
+                         size  = densityKgKm2), 
+                     alpha = 0.6) +
+  scale_color_manual(values = c("0" = "red", "1" = "blue"), 
+                     labels = c("Absence", "Presence"), 
+                     name = "Occurence") +
+  scale_size_continuous(name ="Biomass density (kg/km²)") +
+  facet_wrap(~ year, nrow=2) +
+  labs(x=NULL, y=NULL) 
+}
+}
+
+if (isTRUE(East_English_Channel)) {
+
+EC_sf <- vect(here("01_DATA", "shapefiles", "split_English_Channel", 
+                    "east_English_Channel.shp"))%>%
+  sf::st_as_sf() %>%
+  sf::st_transform(4326)
+
+plot_east <- ggOceanMaps::basemap(data = EC_sf) +   
+  ggplot2::geom_sf(data = EC_sf, fill = NA) +        
+  ggspatial::geom_spatial_point(data = data_CGFS_east, 
+                     aes(x = lon, y = lat, 
+                         color = factor(presence_absence), 
+                         size  = densityKgKm2), 
+                     alpha = 0.6) +
+  scale_color_manual(values = c("0" = "red", "1" = "blue"), 
+                     labels = c("Absence", "Presence"), 
+                     name = "Occurence") +
+  scale_size_continuous(name ="Biomass density \n(kg/km²)") +
+  facet_wrap(~ year, nrow=2) +
+  labs(x=NULL, y=NULL)
+
+}
+
+patchwork::wrap_plots(Filter(Negate(is.null), list(plot_west, plot_east)), ncol = 1)
+
+```
+<br/>  
+
+## 1.3. Autocorrelation in density of biomass data 
+
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) {
+  p_Moran_west <- compute_plot_Moran(data_CGFS_west, region = "west")
+  p_resids_west <- residuals_withoutRF(data_CGFS_west, region = "west")
+  west_plots <- Filter(Negate(is.null), list(p_Moran_west, p_resids_west))
+  if (length(west_plots)) print(patchwork::wrap_plots(west_plots, ncol = 2, widths = c(1, 2)))
+}
+
+```
+Moran's index (left), Residuals map of fit without random effect
+
+<br/>  
+
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) {
+  p_Moran_east <- compute_plot_Moran(data_CGFS_east, region = "east")
+  p_resids_east <- residuals_withoutRF(data_CGFS_east, region = "east")
+  east_plots <- Filter(Negate(is.null), list(p_Moran_east, p_resids_east))
+  if (length(east_plots)) print(patchwork::wrap_plots(east_plots, ncol = 2, widths = c(1, 2)))
+}
+
+```
+
+<br/>  
+<br/>  
+
+# 2. Mesh 
+
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+
+plots_mesh <- list()
+
+if (isTRUE(West_English_Channel)) {
+  plots_mesh <- c(plots_mesh,
+                  lapply(meshes_by_region$west, function(x) x$plot_mesh))
+}
+
+if (isTRUE(East_English_Channel)) {
+  plots_mesh <- c(plots_mesh,
+                  lapply(meshes_by_region$east, function(x) x$plot_mesh))
+}
+
+ggpubr::ggarrange(plotlist = plots_mesh)
+
+```
+
+<br/>  
+<br/>  
+
+
+
+# 3. Model candidates 
+
+## 3.1. Fits Statuses
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+statuses_type <- c("models_valid", "models_sanity_failed", "models_fit_failed")
+
+sanity_df <- purrr::imap_dfr(sanity_by_region, function(meshes_by_region, region) {
+  purrr::imap_dfr(meshes_by_region, function(responses_by_mesh, mesh) {
+    purrr::imap_dfr(responses_by_mesh, function(model_status, response) {
+      
+      keep <- intersect(names(model_status), statuses_type)
+      
+      purrr::map_dfr(keep, function(status) {
+        families <- names(model_status[[status]])
+        if (length(families) == 0) return(NULL)
+        
+        tibble::tibble(region = region,
+                       mesh = mesh,
+                       response = response,
+                       family = families,
+                       status = status)
+      })
+    })
+  })
+})
+
+sanity_df <- sanity_df %>%
+  dplyr::mutate(region = factor(region, levels = c("west", "east")))
+
+ggplot(sanity_df, aes(x = response, y = family, fill = status)) +
+  geom_tile(color = "white", linewidth = 0.4) +
+  facet_grid(region ~ mesh) +
+  scale_fill_manual(
+    values = c("models_valid" = "#2ca25f",
+               "models_fit_failed" = "#de2d26",
+               "models_sanity_failed" = "#ffb703"),
+    labels = c(
+      "models_valid" = "Converged fit",
+      "models_fit_failed" = "Non-convergent fit",
+      "models_sanity_failed" = "Converged fit rejected after \npost-fit consistency checks")) +
+  theme_bw() +
+  theme(legend.spacing.y = unit(0.9, "cm"),
+        legend.key.height = unit(0.9, "cm"),
+        legend.text = element_text(lineheight = 1.1),
+        axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+
+## 3.2. Parameters estimates
+ 
+```{r echo=FALSE, fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) {
+  
+params_west %>%
+  ggplot(aes(x = family, y = estimate, shape = component, color = family)) +
+  geom_point(size = 3, position = position_dodge(width = 0.6)) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), size=0.8,
+                width = 0, position = position_dodge(width = 0.6)) +
+  facet_grid(response + parameter ~ mesh, scales = "free_y") +
+  labs(x = "Family",  y = "Estimate", shape = "Component",
+    title = "WEST region : sdmTMB parameters estimates") +
+  scale_color_manual(values = family_colors)+
+  guides(color = "none") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "top")
+
+}
+
+```
+
+<br/>
+
+range: distance beyond which two locations can be considered effectively independent (spatial correlation becomes negligible, approximately ~0.13 correlation).  
+
+sigma_O: marginal standard deviation of the spatial random field (omega); it measures the average amplitude of spatial variation that is persistent over time and not explained by the model. Lower values indicate that covariates explain the spatial structure more effectively.  
+
+sigma_E: marginal standard deviation of the spatio-temporal random field (epsilon); it measures the average amplitude of spatial variation that changes over time and is not explained by the model. Lower values indicate that the spatio-temporal structure is already well captured by the other components of the model.  
+
+<br/>
+```{r echo=FALSE, fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) {
+  
+params_east %>%
+  ggplot(aes(x = family, y = estimate, shape = component, color = family)) +
+  geom_point(size = 3, position = position_dodge(width = 0.6)) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), size=0.8,
+                width = 0, position = position_dodge(width = 0.6)) +
+  facet_grid(response + parameter ~ mesh, scales = "free_y") +
+  labs(x = "Family",  y = "Estimate", shape = "Component",
+    title = "EAST region : sdmTMB parameters estimates") +
+  scale_color_manual(values = family_colors)+
+  guides(color = "none") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "top")
+
+}
+
+```
+<br/>
+
+## 3.2bis. Moran : residual autocorrelation proxy
+
+```{r echo=FALSE, fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) {
+
+moran_prop <- moran_by_region$west$moran_results %>%
+  dplyr::mutate(significant = moran_p.value < 0.05) %>%
+  dplyr::group_by(mesh, family) %>%
+  dplyr::summarise(prop_moran_signif = mean(significant),
+                   .groups = "drop")
+
+ggplot2::ggplot(moran_prop, aes(x = mesh, y = family, fill = prop_moran_signif * 100)) +
+  ggplot2::geom_tile(color = "white") +
+  ggplot2::geom_text(aes(label = round(prop_moran_signif * 100, 1)),
+                     color = "black", fontface = "bold", size = 3) +
+  ggplot2::scale_fill_distiller(palette = "RdYlBu", direction = -1, limits = c(0, 100)) +
+  ggplot2::theme_bw() +
+  ggplot2::labs(x = "Cutoff", y = "Family", fill = "% significant\nMoran's index", 
+                title = "WEST region") +
+  ggplot2::theme(panel.grid = ggplot2::element_blank())
+}
+
+```
+
+```{r echo=FALSE, fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) {
+
+moran_prop <- moran_by_region$east$moran_results %>%
+  dplyr::mutate(significant = moran_p.value < 0.05) %>%
+  dplyr::group_by(mesh, family) %>%
+  dplyr::summarise(prop_moran_signif = mean(significant),
+                   .groups = "drop")
+
+ggplot2::ggplot(moran_prop, aes(x = mesh, y = family, fill = prop_moran_signif * 100)) +
+  ggplot2::geom_tile(color = "white") +
+  ggplot2::geom_text(aes(label = round(prop_moran_signif * 100, 1)),
+                     color = "black", fontface = "bold", size = 3) +
+  ggplot2::scale_fill_distiller(palette = "RdYlBu", direction = -1, limits = c(0, 100)) +
+  ggplot2::theme_bw() +
+  ggplot2::labs(x = "Cutoff", y = "Family", fill = "% significant\nMoran's index", 
+                title = "EAST region") +
+  ggplot2::theme(panel.grid = ggplot2::element_blank())
+}
+
+```
+<br/>
+<br/>
+## 3.2ter. Abundance index 
+
+
+```{r echo=FALSE, fig.height=10, fig.width=10, message=FALSE, warning=FALSE}
+
+index_df <- purrr::imap_dfr(converged_models_predictions, function(region_data, region) {
+  purrr::imap_dfr(region_data, function(mesh_data, mesh) {
+    purrr::imap_dfr(mesh_data, function(response_data, response) {
+      purrr::imap_dfr(response_data, function(model_data, family) {
+        
+        as.data.frame(model_data$index) %>%
+          dplyr::mutate(region = region,
+                        mesh = mesh,
+                        response = response,
+                        family = family)
+      })
+    })
+  })
+})
+
+index_df <- index_df %>% filter(response == "totalWeightKg")
+ggplot(index_df, aes(x = year, y = est, colour = family, fill = family, group = family)) +
+  geom_line(linewidth = 0.8) +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.2, colour = NA) +
+  geom_point(size = 2) +
+  facet_grid(region ~ mesh, scales = "free_y") +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "top") +
+  labs(x = "", y = "Abundance index", colour = "Distribution family", fill = "Distribution family")
+
+```
+
+<br/>
+<br/>
+## 3.3. Data simulations from fitted models - DHARMa residuals, RMSE, MAE
+
+Simulation of 20000 datasets from fitted models and then:  
+* plot DHARma residuals  
+* plot DHARMa Moran's I test for distance-based autocorrelation  
+* compute RMSE & MAE between observed and simulated data  
+
+```{r echo=FALSE, fig.height=5, fig.width=8, message=FALSE, warning=FALSE, results='asis'}
+
+for (region in names(moran_by_region)) {
+  
+  cat("\n\n##", region, "\n\n")
+  
+  for (model_id in names(moran_by_region[[region]]$dharma_plots)) {
+    
+    cat("\n\n###", model_id, "\n\n")
+    plot(moran_by_region[[region]]$dharma_plots[[model_id]])
+  }
+}
+```
+<br/>
+```{r echo=FALSE, fig.height=10, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) {
+  metrics_west <- simulation_errors_by_region$west
+  
+  mean_totalWeightKg_west <- mean(data_CGFS_west$totalWeightKg)
+  mean_densityKgKm2_west <- mean(data_CGFS_west$densityKgKm2)
+  
+  obs_means_west <- tibble(
+    response = c("totalWeightKg", "densityKgKm2"),
+    mean_obs  = c(mean_totalWeightKg_west, mean_densityKgKm2_west))
+  
+  west_MAE <- ggplot(metrics_west %>% filter(response %in% obs_means_west$response),
+                     aes(x = family, y = MAE, color = family)) +
+    scale_y_log10() +    
+    geom_boxplot(outlier.alpha = 0.2) +
+    facet_grid(response ~ mesh, scales = "free_y") +
+    geom_hline(data = obs_means_west, aes(yintercept = mean_obs),
+               linetype = "dotted", linewidth = 0.7) +
+    scale_color_manual(values = family_colors)+
+    labs(x = NULL, y = "MAE", subtitle = "Dotted line = average observations") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+          legend.position = "none")
+  
+  west_RMSE <- ggplot(metrics_west %>% filter(response %in% obs_means_west$response),
+                      aes(x = family, y = RMSE, color = family)) +
+    scale_y_log10() +    
+    geom_boxplot(outlier.alpha = 0.2) +
+    facet_grid(response ~ mesh, scales = "free_y") +
+    geom_hline(data = obs_means_west, aes(yintercept = mean_obs),
+               linetype = "dotted", linewidth = 0.7) +
+    scale_color_manual(values = family_colors)+
+    labs(x = NULL, y = "RMSE", 
+         title = "West CGFS",
+         subtitle = "Dotted line = average observations") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+          legend.position = "none")
+  
+  plots <- Filter(Negate(is.null), list(west_RMSE, west_MAE)) 
+  if (length(plots)) patchwork::wrap_plots(plots, ncol = 1)
+}
+
+```
+
+<br/>
+
+```{r echo=FALSE, fig.height=10, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) {
+  metrics_east <- simulation_errors_by_region$east
+
+  mean_totalWeightKg_east <- mean(data_CGFS_east$totalWeightKg)
+  mean_densityKgKm2_east <- mean(data_CGFS_east$densityKgKm2)
+
+  obs_means_east <- tibble(
+    response = c("totalWeightKg", "densityKgKm2"),
+    mean_obs  = c(mean_totalWeightKg_east, mean_densityKgKm2_east))
+  
+  east_MAE <- ggplot(metrics_east %>% filter(response %in% obs_means_east$response),
+                     aes(x = family, y = MAE, color = family)) +
+    scale_y_log10() +    
+    geom_boxplot(outlier.alpha = 0.2) +
+    facet_grid(response ~ mesh, scales = "free_y") +
+    geom_hline(data = obs_means_east, aes(yintercept = mean_obs),
+               linetype = "dotted", linewidth = 0.7) +
+    scale_color_manual(values = family_colors)+
+    labs(x = NULL, y = "MAE", 
+         subtitle = "Dotted line = average observations") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+          legend.position = "none")
+  
+  east_RMSE <- ggplot(metrics_east %>% filter(response %in% obs_means_east$response),
+                      aes(x = family, y = RMSE, color = family)) +
+    scale_y_log10() +    
+    geom_boxplot(outlier.alpha = 0.2) +
+    facet_grid(response ~ mesh, scales = "free_y") +
+    geom_hline(data = obs_means_east, aes(yintercept = mean_obs),
+               linetype = "dotted", linewidth = 0.7) +
+    scale_color_manual(values = family_colors)+
+    labs(x = NULL, y = "RMSE", 
+         title = "East CGFS",
+         subtitle = "Dotted line = average observations") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+          legend.position = "none")
+  
+  plots <- Filter(Negate(is.null), list(east_RMSE, east_MAE)) 
+  if (length(plots)) patchwork::wrap_plots(plots, ncol = 1)
+}
+
+```
+
+<br/>
+<br/>
+
+## 3.4. AIC weights
+
+```{r echo=FALSE, fig.height=4, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) {
+  
+  AIC_df <- AIC_by_region$west
+  ggplot(AIC_df,
+       aes(x = weight*100, y = 1, color = family, shape = family)) +
+  geom_point(size = 4) +
+  facet_grid(response ~ mesh) +
+  scale_color_manual(values = family_colors)+
+  labs(x = "AIC weight (%)", y = NULL, color = "Family", shape = "Family", 
+       title = "WEST region") +
+  theme_bw() +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        legend.position = "top")
+} 
+
+```
+
+```{r echo=FALSE, fig.height=4, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) {
+  
+  AIC_df <- AIC_by_region$east
+  ggplot(AIC_df,
+       aes(x = weight*100, y = 1, color = family, shape = family)) +
+  geom_point(size = 4) +
+  facet_grid(response ~ mesh) +
+  scale_color_manual(values = family_colors)+
+  labs(x = "AIC weight (%)", y = NULL, color = "Family", shape = "Family", 
+       title = "EAST region") +
+  theme_bw() +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        legend.position = "top")
+} 
+
+```
+
+## 3.5. Spatial bloc cross-validation 
+
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) {
+
+west_3folds <- readRDS(here("01_DATA/folds_CV/west_3folds.rds"))
+ggplot(west_3folds) +
+  geom_point(aes(x = lon, y = lat, color = factor(spatial_zone)),
+             size = 5, alpha = 0.7) +
+  geom_text(aes(x = lon, y = lat, label = fold_id),
+            size = 3) +
+  facet_wrap(~ year, nrow=2) +
+  theme_bw() +
+  labs(title = "Western English Channel — 21 folds (3 per year)", 
+       color = "Zone", x = NULL, y = NULL)
+}
+
+```
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) blockedCV_by_region$west$cv_scores
+
+```
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) {
+  
+  blockedCV_summary_west <- imap_dfr(
+    blockedCV_by_region$west$cv_outputs,
+    function(mesh_list, mesh) {
+      purrr::imap_dfr(mesh_list, function(resp_list, response) {
+        purrr::imap_dfr(resp_list, function(cv, family) {
+          tibble(mesh = mesh,
+                 response = response,
+                 family = family,
+                 n_folds_tot = length(cv$pdHess),
+                 n_converged = sum(cv$pdHess),
+                 pourcent_converged = 100 * mean(cv$pdHess),
+                 all_converged = isTRUE(cv$converged))
+        })
+      })
+    })
+  blockedCV_summary_west
+  
+}
+
+```
+```{r echo=FALSE, fig.height=4, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) {
+  blockedCV <- blockedCV_by_region$west$cv_scores
+  blockedCV_df <- blockedCV %>%
+    group_by(response) %>%
+    mutate(delta_sumLL = sum_loglik - max(sum_loglik))%>%
+    ungroup()
+  
+  ggplot(blockedCV_df,
+       aes(x = delta_sumLL, y = 1, color = family, shape = family)) +
+  geom_point(size = 4) +
+  facet_grid(response ~ mesh) +
+  scale_color_manual(values = family_colors)+
+  labs(x = "CV sum_loglik", y = NULL, color = "Family", shape = "Family", 
+       title = "WEST region") +
+  theme_bw() +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        legend.position = "top")
+} 
+
+```
+<br/>
+
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) {
+  
+east_4folds <- readRDS(here("01_DATA/folds_CV/east_4folds.rds"))
+ggplot(east_4folds) +
+  geom_point(aes(x = lon, y = lat, color = factor(spatial_zone)),
+             size = 5, alpha = 0.7) +
+  geom_text(aes(x = lon, y = lat, label = fold_id),
+            size = 3) +
+  facet_wrap(~ year, nrow=2) +
+  theme_bw() +
+  labs(title = "Eastern English Channel — 28 folds (4 per year)", 
+       color = "Zone", x = NULL, y = NULL)
+}
+
+```
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) blockedCV_by_region$east$cv_scores
+
+```
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) {
+  
+  blockedCV_summary_east <- imap_dfr(
+    blockedCV_by_region$east$cv_outputs,
+    function(mesh_list, mesh) {
+      purrr::imap_dfr(mesh_list, function(resp_list, response) {
+        purrr::imap_dfr(resp_list, function(cv, family) {
+          tibble(mesh = mesh,
+                 response = response,
+                 family = family,
+                 n_folds_tot = length(cv$pdHess),
+                 n_converged = sum(cv$pdHess),
+                 pourcent_converged = 100 * mean(cv$pdHess),
+                 all_converged = isTRUE(cv$converged))
+        })
+      })
+    })
+  blockedCV_summary_east
+  
+}
+
+```
+
+```{r echo=FALSE, fig.height=4, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) {
+  blockedCV <- blockedCV_by_region$east$cv_scores
+  blockedCV_df <- blockedCV %>%
+    group_by(response) %>%
+    mutate(delta_sumLL = sum_loglik - max(sum_loglik))%>%
+    ungroup()
+  
+    ggplot(blockedCV_df,
+       aes(x = delta_sumLL, y = 1, color = family, shape = family)) +
+  geom_point(size = 4) +
+  facet_grid(response ~ mesh) +
+  scale_color_manual(values = family_colors)+
+  labs(x = "CV sum_loglik", y = NULL, color = "Family", shape = "Family", 
+       title = "EAST region") +
+  theme_bw() +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        legend.position = "top")
+} 
+
+```
+
+<br/>
+
+## 3.6. Random cross-validation 
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) randomCV_by_region$west$cv_scores
+
+
+```
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) {
+  randomCV_summary_west <- purrr::imap_dfr(
+    randomCV_by_region$west$cv_outputs,
+    function(mesh_list, mesh) {
+      purrr::imap_dfr(mesh_list, function(resp_list, response_name) {
+        purrr::imap_dfr(resp_list, function(cv, family_name) {
+          tibble(mesh = mesh,
+                 response = response_name,
+                 family = family_name,
+                 n_folds_tot = length(cv$pdHess),
+                 n_converged = sum(cv$pdHess),
+                 pourcent_converged = 100 * mean(cv$pdHess),
+                 all_converged = cv$converged)
+          })
+        })
+    })
+  randomCV_summary_west
+}
+
+```
+```{r echo=FALSE, fig.height=4, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) {
+  randomCV <- randomCV_by_region$west$cv_scores
+  randomCV_df <- randomCV %>%
+    group_by(response) %>%
+    mutate(delta_sumLL = sum_loglik - max(sum_loglik))%>%
+    ungroup()
+  
+  ggplot(randomCV_df,
+       aes(x = delta_sumLL, y = 1, color = family, shape = family)) +
+  geom_point(size = 4) +
+  facet_grid(response ~ mesh) +
+  scale_color_manual(values = family_colors)+
+  labs(x = "CV sum_loglik", y = NULL, color = "Family", shape = "Family",
+       title = "WEST region") +
+  theme_bw() +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        legend.position = "top")
+
+} 
+
+```
+<br/>
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) randomCV_by_region$east$cv_scores
+
+```
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) {
+  randomCV_summary_east <- imap_dfr(
+    randomCV_by_region$east$cv_outputs,
+      function(mesh_list, mesh) {
+        purrr::imap_dfr(mesh_list, function(resp_list, response_name) {
+          purrr::imap_dfr(resp_list, function(cv, family_name) {
+            tibble(mesh = mesh,
+                   response = response_name,
+                   family = family_name,
+                   n_folds_tot = length(cv$pdHess),
+                   n_converged = sum(cv$pdHess),
+                   pourcent_converged = 100 * mean(cv$pdHess),
+                   all_converged = cv$converged)
+            })
+          })
+        })
+  randomCV_summary_east
+}
+
+```
+
+<br/>
+
+```{r echo=FALSE, fig.height=4, fig.width=10, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) {
+  randomCV <- randomCV_by_region$east$cv_scores
+  randomCV_df <- randomCV %>%
+    group_by(response) %>%
+    mutate(delta_sumLL = sum_loglik - max(sum_loglik))%>%
+    ungroup()
+
+    ggplot(randomCV_df,
+       aes(x = delta_sumLL, y = 1, color = family, shape = family)) +
+  geom_point(size = 4) +
+  facet_grid(response ~ mesh) +
+  scale_color_manual(values = family_colors)+
+  labs(x = "CV sum_loglik", y = NULL, color = "Family", shape = "Family",
+       title = "EAST region") +
+  theme_bw() +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        legend.position = "top")
+
+} 
+```
+
+<br/>
+<br/>
+
+
+# 4. Projection grid
+
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+plot_west <- grid_by_region$west$plot_grid
+plot_east <- grid_by_region$east$plot_grid
+patchwork::wrap_plots(Filter(Negate(is.null), list(plot_west, plot_east)), ncol = 2)
+```
+<br/>
+<br/>
+
+
+# 5. Predictions
+
+
+
+```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE, results='asis'}
+
+predictions_df <- purrr::imap_dfr(converged_models_predictions, function(region_list, region) {
+  purrr::imap_dfr(region_list, function(mesh_list, mesh) {
+    purrr::imap_dfr(mesh_list, function(response_list, response) {
+      purrr::imap_dfr(response_list, function(model_list, family) {
+        as.data.frame(model_list$predictions) %>%
+          dplyr::mutate(region = region, mesh = mesh, response = response, family = family)
+      })
+    })
+  })
+})
+
+regions_to_plot <- c()
+if (isTRUE(West_English_Channel)) regions_to_plot <- c(regions_to_plot, "west")
+if (isTRUE(East_English_Channel)) regions_to_plot <- c(regions_to_plot, "east")
+
+for (region_name in regions_to_plot) {
+  land_region <- land_by_region[[region_name]]
+  for (cutoff_name in unique(predictions_df$mesh[predictions_df$region == region_name])) {
+    for (response_name in unique(predictions_df$response[predictions_df$region == region_name & predictions_df$mesh == cutoff_name])) {
+      df_plot <- predictions_df %>%
+        dplyr::filter(region == region_name, mesh == cutoff_name, response == response_name)
+      p <- ggplot2::ggplot(df_plot, ggplot2::aes(lon, lat, fill = est)) +
+        ggplot2::geom_raster() +
+        ggplot2::geom_sf(data = land_region$land, fill = "grey80", inherit.aes = FALSE, color = "grey80") +
+        ggplot2::scale_y_continuous(breaks = scales::pretty_breaks(n = 3)) +
+        ggplot2::scale_x_continuous(breaks = scales::pretty_breaks(n = 4)) +
+        ggplot2::coord_sf(xlim = land_region$xlim, ylim = land_region$ylim, expand = FALSE) +
+        ggplot2::facet_grid(family ~ year) +
+        ggplot2::theme(panel.grid = ggplot2::element_blank(), panel.background = ggplot2::element_rect(fill = "white", colour = NA), panel.border = ggplot2::element_rect(color = "white", fill = NA, linewidth = 2), strip.background = ggplot2::element_rect(fill = "grey40", color = "white"), strip.text = ggplot2::element_text(color = "white", face = "bold")) +
+        ggplot2::labs(x = "", y = "", fill = "est", title = paste(region_name, "-", cutoff_name, "-", response_name)) +
+        ggplot2::scale_fill_distiller(trans = "log10", palette = "RdYlBu", labels = scales::label_number(drop0trailing = TRUE))
+      print(p)
+    }
+  }
+}
+
+
+```
+
+<br/>
+<br/>
+
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE, results='asis'}
+
+plot_prediction_maps_region <- function(prediction_maps, region_name) {
+  if (is.null(prediction_maps[[region_name]])) return(NULL)
+  for (mesh_name in names(prediction_maps[[region_name]])) {
+    cat("\n\n###", region_name, "-", mesh_name, "\n\n")
+    for (response in names(prediction_maps[[region_name]][[mesh_name]])) {
+      cat("\n\n####", response, "\n\n")
+      for (family in names(prediction_maps[[region_name]][[mesh_name]][[response]])) {
+        cat("\n\n#####", family, "\n\n")
+        print(prediction_maps[[region_name]][[mesh_name]][[response]][[family]])
+      }
+    }
+  }
+}
+
+if (isTRUE(West_English_Channel)) {
+  plot_prediction_maps_region(prediction_maps, "west")
+}
+
+if (isTRUE(East_English_Channel)) {
+  plot_prediction_maps_region(prediction_maps, "east")
+}
+
+```
+
+<br/>
+<br/>
+<br/>
+
+
+
+# 6. Simulations : coefficient variation 
+<br/>
+
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE, results='asis'}
+
+cv_df <- purrr::imap_dfr(sim_cv_all, function(region_list, region) {
+  purrr::imap_dfr(region_list, function(mesh_list, mesh) {
+    purrr::imap_dfr(mesh_list, function(response_list, response) {
+      purrr::imap_dfr(response_list, function(df, family) {
+        df %>%
+          dplyr::mutate(region = region,
+                        mesh = mesh,
+                        response = response,
+                        family = family)
+      })
+    })
+  })
+})
+
+for (region_name in unique(cv_df$region)) {
+  
+  land_obj <- land_by_region[[region_name]]
+  
+  for (cutoff_name in unique(cv_df$mesh[cv_df$region == region_name])) {
+    
+    for (response_name in unique(cv_df$response[cv_df$region == region_name &
+                                                cv_df$mesh == cutoff_name])) {
+      
+      cat("\n\n##", region_name, "-", cutoff_name, "-", response_name, "\n\n")
+      
+      df_plot <- cv_df %>%
+        dplyr::filter(region == region_name,
+                      mesh == cutoff_name,
+                      response == response_name)
+      
+      p <- ggplot(df_plot, aes(lon, lat, fill = cv)) +
+        geom_raster() +
+        geom_sf(data = land_obj$land,
+                fill = "grey80",
+                inherit.aes = FALSE,
+                color = "grey80") +
+        scale_y_continuous(breaks = pretty_breaks(n = 3)) +
+        scale_x_continuous(breaks = pretty_breaks(n = 4)) +
+        coord_sf(xlim = land_obj$xlim,
+                 ylim = land_obj$ylim,
+                 expand = FALSE) +
+        facet_grid(family ~ year) +
+        theme(panel.grid = element_blank(),
+              panel.background = element_rect(fill = "white", colour = NA),
+              panel.border = element_rect(color = "white", fill = NA, linewidth = 2),
+              strip.background = element_rect(fill = "grey40", color = "white"),
+              strip.text = element_text(color = "white", face = "bold")) +
+        labs(x = "", y = "", fill = "CV",
+          title = paste(region_name, cutoff_name, response_name, sep = " - ")) +
+        scale_fill_viridis_c(trans = "log10",
+                             limits = cv_range_global,
+                             oob = scales::squish,
+                             labels = label_number(drop0trailing = TRUE))
+      
+      print(p)
+    }
+  }
+}
+```
+
+
+
+<br/>
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE, results='asis'}
+
+plot_cv_maps_region <- function(plots_cv_all, region_name) {
+  if (is.null(plots_cv_all[[region_name]])) return(NULL)
+  for (mesh_name in names(plots_cv_all[[region_name]])) {
+    cat("\n\n###", region_name, "-", mesh_name, "\n\n")
+    for (response in names(plots_cv_all[[region_name]][[mesh_name]])) {
+      cat("\n\n####", response, "\n\n")
+      for (family in names(plots_cv_all[[region_name]][[mesh_name]][[response]])) {
+        cat("\n\n#####", family, "\n\n")
+        print(plots_cv_all[[region_name]][[mesh_name]][[response]][[family]])
+      }
+    }
+  }
+}
+if (isTRUE(West_English_Channel)) {
+  plot_cv_maps_region(plots_cv_all, "west")
+}
+
+if (isTRUE(East_English_Channel)) {
+  plot_cv_maps_region(plots_cv_all, "east")
+}
+```
+
+<br/>
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+cv_df <- purrr::imap_dfr(sim_cv_all, function(region_list, region_name) {
+  purrr::imap_dfr(region_list, function(mesh_list, mesh_name) {
+    purrr::imap_dfr(mesh_list, function(response_list, response_name) {
+      purrr::imap_dfr(response_list, function(df, family_name) {
+        df %>%
+          dplyr::mutate(
+            region = region_name,
+            mesh = mesh_name,
+            response = response_name,
+            family = family_name
+          )
+      })
+    })
+  })
+})
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+if (isTRUE(West_English_Channel)) {
+  
+  west_CV <- ggplot(cv_df %>% filter(region == "west"),
+                    aes(x = family, y = cv, color = family)) +
+    scale_y_log10() +
+    geom_boxplot(outlier.alpha = 0.2) +
+    geom_violin(alpha = 0.1)+
+    facet_grid(response ~ mesh, scales = "free_y") +
+    scale_color_manual(values = family_colors) +
+    labs(x = NULL, y = "Coefficient of variation", title = "West CGFS",
+         subtitle = "Prediction uncertainty by distribution family") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.position = "none")
+  
+  west_CV
+}
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+if (isTRUE(East_English_Channel)) {
+  
+east_CV <- ggplot(cv_df %>% filter(region == "east"),
+                  aes(x = family, y = cv, color = family)) +
+  scale_y_log10() +
+  geom_boxplot(outlier.alpha = 0.2) +
+  geom_violin(alpha = 0.1)+
+  facet_grid(response ~ mesh, scales = "free_y") +
+  scale_color_manual(values = family_colors) +
+  labs(x = NULL, y = "Coefficient of variation", title = "East CGFS",
+    subtitle = "Prediction uncertainty by distribution family") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")
+
+east_CV
+}
+```

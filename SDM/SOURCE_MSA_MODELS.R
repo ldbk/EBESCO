@@ -1,0 +1,195 @@
+
+
+# ------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------#
+# SCRIPT TO RUN MESH SENSITIVITY ANALYSIS PER SPECIES AND REGION
+# ------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------#
+rm(list=ls())
+
+# ------------------------------------------------------------------------------#
+####  LOAD PACKAGES  #### 
+# ------------------------------------------------------------------------------#
+source(here::here('04_MODEL/packages/packages.R'))
+
+
+# ------------------------------------------------------------------------------#
+####  DEFINE PARAMETERS  #### 
+# ------------------------------------------------------------------------------#
+## Define species
+# ----------------#
+# sp_scientific <- "Capros aper"                 # Boarfish / Sanglier
+# sp_scientific <- "Chelidonichthys cuculus"     # Red gurnard / Grondin rouge
+# sp_scientific <- "Chelidonichthys lucerna"     # Tub gurnard / Grondin perlon
+# sp_scientific <- "Conger conger"               # European conger / Congre d'Europe
+# sp_scientific <- "Dicentrarchus labrax"        # European seabass / Bar européen
+# sp_scientific <- "Engraulis encrasicolus"      # European anchovy / Anchois
+# sp_scientific <- "Hippocampus hippocampus"
+# sp_scientific <- "Merluccius merluccius"       # European hake / Merlu européen
+# sp_scientific <- "Micromesistius poutassou"    # Blue whiting / Merlan bleu
+sp_scientific <- "Solea solea"                 # Common sole / Sole commune
+# sp_scientific <- "Trachurus trachurus"         # Atlantic horse mackerel / Chinchard commun
+# sp_scientific <- "Zeus faber"                  # John Dory / Saint-Pierre
+
+
+
+
+## Define study refions for the species 
+# ----------------------------------------#
+species_criteria_region <- readRDS(here::here("01_DATA/species_criteria_region_10percent.rds"))%>%
+  dplyr::filter(species == sp_scientific)
+
+West_English_Channel = isTRUE(species_criteria_region$west_region)
+East_English_Channel = isTRUE(species_criteria_region$east_region)
+
+sp_name_safe <- gsub("[^A-Za-z0-9_]", "_", sp_scientific)
+
+# ------------------------------------------------------------------------------#
+####  LOAD AND TRANSFORM DATA  #### 
+# ------------------------------------------------------------------------------#
+source(here::here('03_TRANSFORM_DATA/transform_data.R'))
+
+
+
+# ------------------------------------------------------------------------------#
+# MESHES PARAMETERS
+# ------------------------------------------------------------------------------#
+
+# west_params <- list(cutoff_values = c(1, 2, 3, 5, 7, 10, 15, 20),
+#                     max_edge_in = c(5, 10, 15, 25, 35, 50, 75, 100),
+#                     max_edge_out = rep(100, 8))
+
+east_params <- list(cutoff_values = c(1, 2, 3, 5, 7, 10, 15, 20),
+                    max_edge_in = c(5, 10, 15, 25, 35, 50, 75, 100),
+                    max_edge_out = rep(100, 8))
+
+
+# ------------------------------------------------------------------------------#
+# LOAD MSA FUNCTIONS 
+# ------------------------------------------------------------------------------#
+
+source(here::here("04_MODEL/functions/MSA_create_meshes_configurations.R"))
+source(here::here("04_MODEL/functions/MSA_check_sanity_meshes_config.R"))
+source(here::here("04_MODEL/functions/MSA_extract_params_deltamodels_converged.R"))
+source(here::here("04_MODEL/functions/MSA_compute_residuals_Moran_nsim1000.R"))
+source(here::here("04_MODEL/functions/MSA_plot_meshes_patchwork.R"))
+
+new_repertory_msa <- here(paste0("05_OUTPUTS/mesh_sensitivity_results/", 
+                                 sp_name_safe, "_MSA_", 
+                                 format(Sys.time(), "%d-%b-%Y-%H.%M")))
+# Regions to process
+regions <- list(
+  # west = list(valid = isTRUE(West_English_Channel), params = west_params),
+  east = list(valid = isTRUE(East_English_Channel), params = east_params))
+
+# Keep only valid regions
+regions_valid <- regions[sapply(regions, function(x) x$valid)]
+
+# Results container
+msa <- list()
+
+# ------------------------------------------------------------------------------#
+# RUN MSA OVER REGION
+# ------------------------------------------------------------------------------#
+for (region_name in names(regions_valid)) {
+  
+  region_params <- regions_valid[[region_name]]$params
+  
+  # 1) Create meshes configurations
+  # ----------------------------------------------------------------------------#
+  meshes_boundary <- do.call(create_meshes_configurations, 
+                             c(list(region_name, 
+                                    add_barrier = FALSE, boundary = TRUE),
+                               region_params))
+  
+  
+  # 2) Sanity checks
+  # ----------------------------------------------------------------------------#
+  sanity_boundary <- if (!is.null(meshes_boundary)) {
+    check_sanity_meshes_config(meshes_boundary)
+  } else NULL
+  
+  
+  # Keep only converged models
+  models_converged_boundary <- if (!is.null(sanity_boundary)) {
+    sanity_boundary$cutoffs_converged_models
+  } else NULL
+  
+  
+  # 3) Extract params
+  # ----------------------------------------------------------------------------#
+  params_boundary <- if (!is.null(models_converged_boundary)) {
+    extract_params_models_converged(models_converged_boundary)
+  } else NULL
+  
+  all_params <- params_boundary
+  
+  moran_boundary <- if (!is.null(models_converged_boundary)) {
+    compute_residuals_Moran(models_converged_boundary)
+  } else NULL
+
+  all_moran <- dplyr::bind_rows(moran_simple, moran_barrier, moran_boundary)
+  
+  
+  # 4) Plot meshes patchwork
+  # ----------------------------------------------------------------------------#
+  
+  plots_meshes_boundary <- if (!is.null(models_converged_boundary)) {
+    plot_meshes_patchwork(models_converged_boundary, ncol = 4)
+  } else NULL
+  
+  
+  # 5) Make predictions
+  # ----------------------------------------------------------------------------#
+  
+  source(here::here("04_MODEL/functions/MSA_predict_converged_models.R"))
+  
+  predictions_boundary <- if (!is.null(models_converged_boundary)) {
+    make_predictions(models_converged_boundary, prediction_grid)
+  } else NULL
+  
+  
+  # ------------------------------------------------------------------------------#
+  ####  SAVE ALL PLOTS INTO HTLM FILE ####
+  # ------------------------------------------------------------------------------#
+  
+  no_mesh <- all(c(is.null(models_converged_simple), 
+                   is.null(models_converged_barrier), 
+                   is.null(models_converged_boundary)))
+  
+  if (!no_mesh) {
+    
+    rmarkdown::render(input = here::here("04_MODEL", "report", "report_MSA_deltamodels.Rmd"),
+                      output_dir = new_repertory_msa,      
+                      output_file = paste0(sp_name_safe, "_", region_name, "_report", ".html"))
+    
+    # Store everything for this region
+    # ----------------------------------------------------------------------------#
+    msa[[region_name]] <- list(
+      region_params = region_params,
+      meshes = list(simple = meshes_simple, 
+                    barrier = meshes_barrier, 
+                    boundary = meshes_boundary),
+      sanity = list(simple = sanity_simple, 
+                    barrier = sanity_barrier, 
+                    boundary = sanity_boundary),
+      models = list(simple = models_converged_simple, 
+                    barrier = models_converged_barrier,
+                    boundary = models_converged_boundary),
+      all_params = all_params,
+      plots = list(meshes_simple = plots_meshes_simple,
+                   meshes_barrier = plots_meshes_barrier,
+                   meshes_boundary = plots_meshes_boundary))
+  } 
+  
+  
+}
+
+
+saveRDS(msa, file.path(new_repertory_msa, paste0(sp_name_safe, "_", "MSA_results.rds")))
+
+
+
+
+
+

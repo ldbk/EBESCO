@@ -31,7 +31,7 @@ source(here::here('04_MODEL/packages/packages.R'))
 # sp_scientific <- "Trachurus trachurus"         # Atlantic horse mackerel / Chinchard commun
 # sp_scientific <- "Zeus faber"                  # John Dory / Saint-Pierre
 # sp_scientific <- "Clupea harengus"             # Atlantic herring / Hareng de l’Atlantique
-# sp_scientific <- "Solea solea"                 # Common sole / Sole commune
+sp_scientific <- "Solea solea"                 # Common sole / Sole commune
 
 sp_name_safe <- gsub("[^A-Za-z0-9_]", "_", sp_scientific)
 
@@ -39,6 +39,7 @@ sp_name_safe <- gsub("[^A-Za-z0-9_]", "_", sp_scientific)
 ## Define study refions for the species 
 # ----------------------------------------#
 species_criteria_region <- readRDS(here::here("01_DATA/species_criteria_region_10percent.rds"))%>%
+  dplyr::mutate(west_region = ifelse(species == sp_scientific, FALSE, west_region))%>%
   dplyr::filter(species == sp_scientific)
 
 West_English_Channel = isTRUE(species_criteria_region$west_region)
@@ -60,19 +61,37 @@ source(here::here('04_MODEL/functions/compute_plot_Moran.R'))
 source(here::here('04_MODEL/functions/compute_plot_residuals_withoutRF.R'))
 
 # ------------------------------------------------------------------------------#
-####  CREATE THE MESH  #### 
+####  CREATE THE MESH CONFIGURATIONS #### 
 # ------------------------------------------------------------------------------#
-source(here::here('04_MODEL/functions/create_mesh_species.R'))
-source(here::here('04_MODEL/functions/MSA_add_boundary_to_mesh.R'))
+source(here::here("04_MODEL/functions/MSA_add_boundary_to_mesh.R"))
+source(here::here("04_MODEL/functions_all_mesh_configs/create_mesh_all_configs.R"))
 
-mesh_by_region <- list()
-# If West_English_Channel is TRUE, build the west mesh
+# west_params <- list(cutoff_values = c(1, 2, 3, 5, 7, 10, 15, 20),
+#                     max_edge_in = c(5, 10, 15, 25, 35, 50, 75, 100),
+#                     max_edge_out = rep(100, 8))
+# 
+# east_params <- list(cutoff_values = c(1, 2, 3, 5, 7, 10, 15, 20),
+#                     max_edge_in = c(5, 10, 15, 25, 35, 50, 75, 100),
+#                     max_edge_out = rep(100, 8))
+
+west_params <- list(cutoff_values = c(15, 20),
+                    max_edge_in = c(75, 100),
+                    max_edge_out = rep(100, 2))
+
+east_params <- list(cutoff_values = c(15, 20),
+                    max_edge_in = c(75, 100),
+                    max_edge_out = rep(100, 2))
+
+meshes_by_region <- list()
+
 if (isTRUE(West_English_Channel)) {
-  mesh_by_region$west <- create_mesh_by_region(region_name = "west", sp_name_safe)
+  meshes_by_region$west <- do.call(create_meshes_configurations,
+                                   c(list(region_name = "west"), west_params))
 }
-# If East_English_Channel is TRUE, build the east mesh
+
 if (isTRUE(East_English_Channel)) {
-  mesh_by_region$east <- create_mesh_by_region(region_name = "east", sp_name_safe)
+  meshes_by_region$east <- do.call(create_meshes_configurations,
+                                   c(list(region_name = "east"), east_params))
 }
 
 
@@ -80,33 +99,37 @@ if (isTRUE(East_English_Channel)) {
 ####  BUILD & FIT CANDITATE MODELS  #### 
 # ------------------------------------------------------------------------------#
 # Vector of response variables to be tested sequentially
-responses <- c("totalWeightKg", "densityKgKm2")
+responses <- c("totalWeightKg")
 
 # Fixed-effects
 fixed_effect <- "1"
 
-source(here::here("04_MODEL/functions/fit_candidate_models.R"))
+source(here::here("04_MODEL/functions_all_mesh_configs/fit_candidate_models_all_mesh_configs.R"))
 
 # object to store fitted models
 fitted_models_by_region <- list()
 
-if (isTRUE(East_English_Channel)) {
-  fitted_models_by_region$east <- fit_candidate_models(data_CGFS = data_CGFS_east, 
-                                                       mesh = mesh_by_region$east$mesh, 
-                                                       region_name = "east")
+if (isTRUE(West_English_Channel)) {
+  fitted_models_by_region$west <- fit_candidate_models(
+    data_CGFS = data_CGFS_west,
+    meshes_configurations = meshes_by_region$west,
+    region_name = "west"
+  )
 }
 
-if (isTRUE(West_English_Channel)) {
-  fitted_models_by_region$west <- fit_candidate_models(data_CGFS = data_CGFS_west, 
-                                                       mesh = mesh_by_region$west$mesh, 
-                                                       region_name = "west")
+if (isTRUE(East_English_Channel)) {
+  fitted_models_by_region$east <- fit_candidate_models(
+    data_CGFS = data_CGFS_east,
+    meshes_configurations = meshes_by_region$east,
+    region_name = "east"
+  )
 }
 
 # ------------------------------------------------------------------------------#
 #### SANITY FILTER FITTED MODELS ####
 # ------------------------------------------------------------------------------#
 
-source(here::here("04_MODEL/functions/sanity_filter_models.R"))
+source(here::here("04_MODEL/functions_all_mesh_configs/sanity_filter_models_all_mesh_configs.R"))
 
 sanity_by_region <- list()
 # Apply sanity checks to West English Channel models
@@ -123,10 +146,10 @@ if (isTRUE(East_English_Channel)) {
 #### EXTRACT CONVERGED MODELS and THEIR PARAMETER ESTIMATES ####
 # ------------------------------------------------------------------------------#
 
-source(here::here("04_MODEL/functions/get_converged_models.R"))
+source(here::here("04_MODEL/functions_all_mesh_configs/get_converged_models_all_mesh_configs.R"))
 converged_models <- get_converged_models(sanity_by_region)
 
-source(here::here("04_MODEL/functions/extract_parameter_estimates.R"))
+source(here::here("04_MODEL/functions_all_mesh_configs/extract_parameter_estimates_all_mesh_configs.R"))
 params_west <- extract_params_converged_models(converged_models, region = "west")%>%
   mutate(region = "west")
 
@@ -138,27 +161,10 @@ params_all <- bind_rows(params_west, params_east) %>%
 
 
 # ------------------------------------------------------------------------------#
-####  COMPUTE ANALYTICAL RANDOMIZED QUANTILE RESIDUALS  #### 
-# ------------------------------------------------------------------------------#
-
-source(here::here("04_MODEL/functions/analytical_randomized_quantile_residuals.R"))
-residuals_by_region <- list()
-
-# West English Channel
-if (isTRUE(West_English_Channel)) {
-  residuals_by_region$west <- randomized_quantile_resids(converged_models, "west")
-}
-# East English Channel
-if (isTRUE(East_English_Channel)) {
-  residuals_by_region$east <- randomized_quantile_resids(converged_models, "east")
-}
-
-
-# ------------------------------------------------------------------------------#
 ####  SIMULATION BASED ANALYTICAL RANDOMIZED QUANTILE RESIDUALS  #### 
 # ------------------------------------------------------------------------------#
 
-source(here::here("04_MODEL/functions/simulation_based_randomized_quantile_residuals.R"))
+source(here::here("04_MODEL/functions_all_mesh_configs/RMSE_MAE_from_sim_all_mesh_configs.R"))
 simulation_errors_by_region <- list()
 if (isTRUE(West_English_Channel)) {
   simulation_errors_by_region$west <- rmse_mae_from_sim(converged_models, "west")
@@ -167,11 +173,18 @@ if (isTRUE(East_English_Channel)) {
   simulation_errors_by_region$east <- rmse_mae_from_sim(converged_models, "east")
 }
 
-
+source(here::here("04_MODEL/functions_all_mesh_configs/moran_from_sim_all_mesh_configs.R"))
+moran_by_region <- list()
+if (isTRUE(West_English_Channel)) {
+  moran_by_region$west <- moran_from_sim(converged_models, "west")
+}
+if (isTRUE(East_English_Channel)) {
+  moran_by_region$east <- moran_from_sim(converged_models, "east")
+}
 # ------------------------------------------------------------------------------#
 ####  cAIC weights  #### 
 # ------------------------------------------------------------------------------#
-source(here::here("04_MODEL/functions/AIC_weights.R"))
+source(here::here("04_MODEL/functions_all_mesh_configs/AIC_weights_all_mesh_configs.R"))
 AIC_by_region <- list()
 
 if (isTRUE(West_English_Channel)) {
@@ -185,28 +198,28 @@ if (isTRUE(East_English_Channel)) {
 # ------------------------------------------------------------------------------#
 ####  RANDOM CROSS-VALIDATION #### 
 # ------------------------------------------------------------------------------#
-source(here::here("04_MODEL/functions/cross_validation_random.R"))
+source(here::here("04_MODEL/functions_all_mesh_configs/cross_validation_random_all_mesh_configs.R"))
 randomCV_by_region <- list()
 
 if (isTRUE(West_English_Channel)) {
-  randomCV_by_region$west <- random_CV(converged_models, "west")
+  randomCV_by_region$west <- random_CV(converged_models, meshes_by_region, "west")
 }
 if (isTRUE(East_English_Channel)) {
-  randomCV_by_region$east <-  random_CV(converged_models, "east")
+  randomCV_by_region$east <-  random_CV(converged_models, meshes_by_region, "east")
 }
 
 
 # ------------------------------------------------------------------------------#
 ####  SPATIO TEMPORAL BLOCKED CROSS-VALIDATION #### 
 # ------------------------------------------------------------------------------#
-source(here::here("04_MODEL/functions/cross_validation_spatiotemporal_block.R"))
+source(here::here("04_MODEL/functions_all_mesh_configs/cross_validation_blocked_all_mesh_configs.R"))
 blockedCV_by_region <- list()
 
 if (isTRUE(West_English_Channel)) {
-  blockedCV_by_region$west <- spatiotemp_blocked_CV(converged_models, "west")
+  blockedCV_by_region$west <- spatiotemp_blocked_CV(converged_models, meshes_by_region, "west")
 }
 if (isTRUE(East_English_Channel)) {
-  blockedCV_by_region$east <-  spatiotemp_blocked_CV(converged_models, "east")
+  blockedCV_by_region$east <-  spatiotemp_blocked_CV(converged_models, meshes_by_region, "east")
 }
 
 
@@ -224,17 +237,17 @@ if (isTRUE(East_English_Channel)) grid_by_region$east <- design_grids("east")
 # ------------------------------------------------------------------------------#
 ####  PREDICT ON THE GRID AND MAP PREDICTIONS ####
 # ------------------------------------------------------------------------------#
-source(here::here("04_MODEL/functions/predict_all_converged_models.R"))
+source(here::here("04_MODEL/functions_all_mesh_configs/predict_all_converged_models_all_mesh_configs.R"))
 converged_models_predictions <- predict_all_converged_models(converged_models, grids_by_region)
 
-source(here::here("04_MODEL/functions/map_predictions_common_fill_limits.R"))
+source(here::here("04_MODEL/functions_all_mesh_configs/map_pred_common_fill_limits_all_mesh_configs.R"))
 # source(here::here("04_MODEL/functions/map_predictions.R"))
 
 
 # ------------------------------------------------------------------------------#
 ####  SIMULATE & COMPUTE, PLOT COEFFICIENT OF VARIATION ####
 # ------------------------------------------------------------------------------#
-source(here::here("04_MODEL/functions/simulate_compute_plot_coeff_variation.R"))
+source(here::here("04_MODEL/functions_all_mesh_configs/simulate_compute_plot_coeff_variation_all_mesh_configs.R"))
 
 # ------------------------------------------------------------------------------#
 ####  SAVE OUTPUTS ####  
@@ -245,7 +258,7 @@ source(here::here("04_MODEL/functions/save_model_diagnostics.R"))
 # ------------------------------------------------------------------------------#
 ####  SAVE ALL PLOTS INTO HTLM FILE ####
 # ------------------------------------------------------------------------------#
-rmarkdown::render(input = here::here("04_MODEL", "report", "report.Rmd"),
+rmarkdown::render(input = here::here("04_MODEL", "report", "report_all_mesh_configs.Rmd"),
                   output_dir = new_repertory_model,
                   output_file = paste0(sp_name_safe, "_report", ".html"))
 

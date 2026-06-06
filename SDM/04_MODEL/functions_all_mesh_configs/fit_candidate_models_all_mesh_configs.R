@@ -1,0 +1,126 @@
+# ============================================================================== #
+#### FIT CANDIDATE MODELS ####
+# ============================================================================== 
+
+# Function that fits candidate models by region
+fit_candidate_models <- function(data_CGFS, meshes_configurations, region_name = "region") {
+  
+  
+  # Specific case : probability of presence = 1 
+  if (sp_scientific == "Trachurus trachurus" && region_name == "west") {
+    # Define the candidate families for the different response variables 
+    families_by_response <- list(
+      # Candidate distributions for total biomass
+      totalWeightKg = list(
+        lognormal = lognormal(link = "log"),
+        gamma = Gamma(link = "log")
+      ),
+      # Candidate distributions for biomass density
+      densityKgKm2 = list(
+        lognormal = lognormal(link = "log"),
+        gamma = Gamma(link = "log")
+      )
+    )
+    
+  } else {
+    # Define the candidate families for the different response variables 
+    families_by_response <- list(
+      # Candidate distributions for total biomass
+      totalWeightKg = list(
+        tweedie = sdmTMB::tweedie(link = "log"),
+        deltagamma = delta_gamma(link1 = "logit", link2 = "log"),
+        deltalognormal = delta_lognormal(link1 = "logit", link2 = "log"),
+        deltagammapoissonlink = delta_gamma(type = "poisson-link"),
+        deltalognormalpoissonlink = delta_lognormal(type = "poisson-link")
+      ),
+      # Candidate distributions for biomass density
+      densityKgKm2 = list(
+        tweedie = sdmTMB::tweedie(link = "log"),
+        deltagamma = delta_gamma(link1 = "logit", link2 = "log"),
+        deltalognormal = delta_lognormal(link1 = "logit", link2 = "log")
+      )
+    )
+  }
+  
+  
+  fitted_candidate_models <- list()
+  
+  
+  # Log-transformed swept area used as offset for total biomass
+  # No offset for density (already standardized per km²)
+  offset_by_response <- list(totalWeightKg = log(data_CGFS$sweptAreaKm2),
+                             densityKgKm2  = NULL)
+  
+  for (mesh_name in names(meshes_configurations)) {
+    
+    current_mesh <- meshes_configurations[[mesh_name]]$mesh
+    
+    fitted_candidate_models[[mesh_name]] <- list()
+    
+  # ------------------------------------------------------------------------------#
+  # Loop over response variables
+  # ------------------------------------------------------------------------------#
+  for (response in responses) {
+    
+    # Construct the model formula for the current response
+    model_formula <- as.formula(paste(response, "~", fixed_effect))
+    
+    # Select the candidate families corresponding to the current response
+    families_chosen <- families_by_response[[response]]
+    
+    # Select the offset argument for the current response (if any)
+    offset_arg <- offset_by_response[[response]]
+    
+    models_fitted <- list()              # Models that fitted successfully 
+    models_fit_failed <- list()          # Models that failed during model fitting
+    
+    
+    # ----------------------------------------------------------------------------#
+    # Loop over candidate families
+    # ----------------------------------------------------------------------------#
+    
+    for (family_name in names(families_chosen)) {
+      
+      cat("[",region_name, "English Channel ] Fitting:", mesh_name, "-", response, "-", family_name, "\n")
+      
+      current_candidate_model <- tryCatch({
+        
+        # List of arguments passed to sdmTMB()
+        args <- list(
+          data = data_CGFS,
+          formula = model_formula,
+          mesh = current_mesh,
+          family = families_chosen[[family_name]],
+          spatial = "on",
+          time = "year",
+          spatiotemporal = "IID"
+        )
+        
+        # Add offset to the model only if it is defined
+        if (!is.null(offset_arg)) args$offset <- offset_arg
+        
+        # Fit the model using arguments
+        do.call(sdmTMB, args)
+        
+      }, error = function(e) e)   # Return the error object instead of stopping execution
+      
+      if (inherits(current_candidate_model, "error")) {
+        models_fit_failed[[family_name]] <- current_candidate_model$message    # Store the error message for this family
+        next
+      }
+      
+      models_fitted[[family_name]] <- current_candidate_model
+    }
+    
+    fitted_candidate_models[[mesh_name]][[response]] <- list(
+      models_fitted = models_fitted,                # Models that fitted successfully for this response
+      models_fit_failed = models_fit_failed         # Models that failed during model fitting for this response
+    )
+  }
+  
+  }
+  return(fitted_candidate_models)
+  
+}
+
+

@@ -13,10 +13,10 @@ new_repertory_model <- here(paste0("05_OUTPUTS/", sp_name_safe, "/",
                                      sp_name_safe, "_", format(Sys.time(), "%d-%b-%Y-%H.%M")))
 dir.create(new_repertory_model)
 
+saveRDS(meshes_by_region, file.path(new_repertory_model, paste0(sp_name_safe, "_", "meshes_by_region.rds")))
 saveRDS(sanity_by_region, file.path(new_repertory_model, paste0(sp_name_safe, "_", "sanity_by_region.rds")))
 saveRDS(converged_models, file.path(new_repertory_model, paste0(sp_name_safe, "_", "converged_models.rds")))
 saveRDS(params_all, file.path(new_repertory_model, paste0(sp_name_safe, "_", "parameter_estimates.rds")))
-saveRDS(residuals_by_region, file.path(new_repertory_model, paste0(sp_name_safe, "_", "residuals_by_region.rds")))
 saveRDS(simulation_errors_by_region, file.path(new_repertory_model, paste0(sp_name_safe, "_", "simulation_errors_by_region.rds")))
 saveRDS(AIC_by_region, file.path(new_repertory_model, paste0(sp_name_safe, "_", "AIC_by_region.rds")))
 saveRDS(randomCV_by_region, file.path(new_repertory_model, paste0(sp_name_safe, "_", "randomCV_by_region.rds")))
