@@ -184,15 +184,15 @@ if (isTRUE(East_English_Channel)) {
 # ------------------------------------------------------------------------------#
 ####  cAIC weights  #### 
 # ------------------------------------------------------------------------------#
-source(here::here("04_MODEL/functions_all_mesh_configs/AIC_weights_all_mesh_configs.R"))
-AIC_by_region <- list()
-
-if (isTRUE(West_English_Channel)) {
-  AIC_by_region$west <- compute_cAIC_weights(converged_models, "west")
-}
-if (isTRUE(East_English_Channel)) {
-  AIC_by_region$east <- compute_cAIC_weights(converged_models, "east")
-}
+# source(here::here("04_MODEL/functions_all_mesh_configs/AIC_weights_all_mesh_configs.R"))
+# AIC_by_region <- list()
+# 
+# if (isTRUE(West_English_Channel)) {
+#   AIC_by_region$west <- compute_cAIC_weights(converged_models, "west")
+# }
+# if (isTRUE(East_English_Channel)) {
+#   AIC_by_region$east <- compute_cAIC_weights(converged_models, "east")
+# }
 
 
 # ------------------------------------------------------------------------------#

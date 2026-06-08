@@ -579,21 +579,21 @@ if (isTRUE(West_English_Channel)) {
 
 ```{r echo=FALSE, fig.height=4, fig.width=10, message=FALSE, warning=FALSE}
 
-if (isTRUE(East_English_Channel)) {
-  
-  AIC_df <- AIC_by_region$east
-  ggplot(AIC_df,
-       aes(x = weight*100, y = 1, color = family, shape = family)) +
-  geom_point(size = 4) +
-  facet_grid(response ~ mesh) +
-  scale_color_manual(values = family_colors)+
-  labs(x = "AIC weight (%)", y = NULL, color = "Family", shape = "Family", 
-       title = "EAST region") +
-  theme_bw() +
-  theme(axis.text.y = element_blank(),
-        axis.ticks.y = element_blank(),
-        legend.position = "top")
-} 
+# if (isTRUE(East_English_Channel)) {
+#   
+#   AIC_df <- AIC_by_region$east
+#   ggplot(AIC_df,
+#        aes(x = weight*100, y = 1, color = family, shape = family)) +
+#   geom_point(size = 4) +
+#   facet_grid(response ~ mesh) +
+#   scale_color_manual(values = family_colors)+
+#   labs(x = "AIC weight (%)", y = NULL, color = "Family", shape = "Family", 
+#        title = "EAST region") +
+#   theme_bw() +
+#   theme(axis.text.y = element_blank(),
+#         axis.ticks.y = element_blank(),
+#         legend.position = "top")
+# } 
 
 ```
 

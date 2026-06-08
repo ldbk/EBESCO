@@ -18,7 +18,7 @@ saveRDS(sanity_by_region, file.path(new_repertory_model, paste0(sp_name_safe, "_
 saveRDS(converged_models, file.path(new_repertory_model, paste0(sp_name_safe, "_", "converged_models.rds")))
 saveRDS(params_all, file.path(new_repertory_model, paste0(sp_name_safe, "_", "parameter_estimates.rds")))
 saveRDS(simulation_errors_by_region, file.path(new_repertory_model, paste0(sp_name_safe, "_", "simulation_errors_by_region.rds")))
-saveRDS(AIC_by_region, file.path(new_repertory_model, paste0(sp_name_safe, "_", "AIC_by_region.rds")))
+saveRDS(moran_by_region, file.path(new_repertory_model, paste0(sp_name_safe, "_", "moran_by_region.rds")))
 saveRDS(randomCV_by_region, file.path(new_repertory_model, paste0(sp_name_safe, "_", "randomCV_by_region.rds")))
 saveRDS(blockedCV_by_region, file.path(new_repertory_model, paste0(sp_name_safe, "_", "blockedCV_by_region.rds")))
 saveRDS(converged_models_predictions, file.path(new_repertory_model, paste0(sp_name_safe, "_", "converged_models_predictions.rds")))
