@@ -40,14 +40,6 @@ family_colors <- c(
 print(sp_scientific)
 
 ```
-<br/>
-
-
-```{r echo=FALSE, warning=FALSE}
-
-knitr::include_graphics(here("01_DATA", "prop_pres_sp.png"))
-
-```
 
 <br/>
 
@@ -579,159 +571,15 @@ if (isTRUE(West_English_Channel)) {
 
 ```{r echo=FALSE, fig.height=4, fig.width=10, message=FALSE, warning=FALSE}
 
-# if (isTRUE(East_English_Channel)) {
-#   
-#   AIC_df <- AIC_by_region$east
-#   ggplot(AIC_df,
-#        aes(x = weight*100, y = 1, color = family, shape = family)) +
-#   geom_point(size = 4) +
-#   facet_grid(response ~ mesh) +
-#   scale_color_manual(values = family_colors)+
-#   labs(x = "AIC weight (%)", y = NULL, color = "Family", shape = "Family", 
-#        title = "EAST region") +
-#   theme_bw() +
-#   theme(axis.text.y = element_blank(),
-#         axis.ticks.y = element_blank(),
-#         legend.position = "top")
-# } 
-
-```
-
-## 3.5. Spatial bloc cross-validation 
-
-```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
-
-if (isTRUE(West_English_Channel)) {
-
-west_3folds <- readRDS(here("01_DATA/folds_CV/west_3folds.rds"))
-ggplot(west_3folds) +
-  geom_point(aes(x = lon, y = lat, color = factor(spatial_zone)),
-             size = 5, alpha = 0.7) +
-  geom_text(aes(x = lon, y = lat, label = fold_id),
-            size = 3) +
-  facet_wrap(~ year, nrow=2) +
-  theme_bw() +
-  labs(title = "Western English Channel — 21 folds (3 per year)", 
-       color = "Zone", x = NULL, y = NULL)
-}
-
-```
-```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
-
-if (isTRUE(West_English_Channel)) blockedCV_by_region$west$cv_scores
-
-```
-```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
-
-if (isTRUE(West_English_Channel)) {
+if (isTRUE(East_English_Channel)) {
   
-  blockedCV_summary_west <- imap_dfr(
-    blockedCV_by_region$west$cv_outputs,
-    function(mesh_list, mesh) {
-      purrr::imap_dfr(mesh_list, function(resp_list, response) {
-        purrr::imap_dfr(resp_list, function(cv, family) {
-          tibble(mesh = mesh,
-                 response = response,
-                 family = family,
-                 n_folds_tot = length(cv$pdHess),
-                 n_converged = sum(cv$pdHess),
-                 pourcent_converged = 100 * mean(cv$pdHess),
-                 all_converged = isTRUE(cv$converged))
-        })
-      })
-    })
-  blockedCV_summary_west
-  
-}
-
-```
-```{r echo=FALSE, fig.height=4, fig.width=10, message=FALSE, warning=FALSE}
-
-if (isTRUE(West_English_Channel)) {
-  blockedCV <- blockedCV_by_region$west$cv_scores
-  blockedCV_df <- blockedCV %>%
-    group_by(response) %>%
-    mutate(delta_sumLL = sum_loglik - max(sum_loglik))%>%
-    ungroup()
-  
-  ggplot(blockedCV_df,
-       aes(x = delta_sumLL, y = 1, color = family, shape = family)) +
+  AIC_df <- AIC_by_region$east
+  ggplot(AIC_df,
+       aes(x = weight*100, y = 1, color = family, shape = family)) +
   geom_point(size = 4) +
   facet_grid(response ~ mesh) +
   scale_color_manual(values = family_colors)+
-  labs(x = "CV sum_loglik", y = NULL, color = "Family", shape = "Family", 
-       title = "WEST region") +
-  theme_bw() +
-  theme(axis.text.y = element_blank(),
-        axis.ticks.y = element_blank(),
-        legend.position = "top")
-} 
-
-```
-<br/>
-
-```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
-
-if (isTRUE(East_English_Channel)) {
-  
-east_4folds <- readRDS(here("01_DATA/folds_CV/east_4folds.rds"))
-ggplot(east_4folds) +
-  geom_point(aes(x = lon, y = lat, color = factor(spatial_zone)),
-             size = 5, alpha = 0.7) +
-  geom_text(aes(x = lon, y = lat, label = fold_id),
-            size = 3) +
-  facet_wrap(~ year, nrow=2) +
-  theme_bw() +
-  labs(title = "Eastern English Channel — 28 folds (4 per year)", 
-       color = "Zone", x = NULL, y = NULL)
-}
-
-```
-```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
-
-if (isTRUE(East_English_Channel)) blockedCV_by_region$east$cv_scores
-
-```
-```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
-
-if (isTRUE(East_English_Channel)) {
-  
-  blockedCV_summary_east <- imap_dfr(
-    blockedCV_by_region$east$cv_outputs,
-    function(mesh_list, mesh) {
-      purrr::imap_dfr(mesh_list, function(resp_list, response) {
-        purrr::imap_dfr(resp_list, function(cv, family) {
-          tibble(mesh = mesh,
-                 response = response,
-                 family = family,
-                 n_folds_tot = length(cv$pdHess),
-                 n_converged = sum(cv$pdHess),
-                 pourcent_converged = 100 * mean(cv$pdHess),
-                 all_converged = isTRUE(cv$converged))
-        })
-      })
-    })
-  blockedCV_summary_east
-  
-}
-
-```
-
-```{r echo=FALSE, fig.height=4, fig.width=10, message=FALSE, warning=FALSE}
-
-if (isTRUE(East_English_Channel)) {
-  blockedCV <- blockedCV_by_region$east$cv_scores
-  blockedCV_df <- blockedCV %>%
-    group_by(response) %>%
-    mutate(delta_sumLL = sum_loglik - max(sum_loglik))%>%
-    ungroup()
-  
-    ggplot(blockedCV_df,
-       aes(x = delta_sumLL, y = 1, color = family, shape = family)) +
-  geom_point(size = 4) +
-  facet_grid(response ~ mesh) +
-  scale_color_manual(values = family_colors)+
-  labs(x = "CV sum_loglik", y = NULL, color = "Family", shape = "Family", 
+  labs(x = "AIC weight (%)", y = NULL, color = "Family", shape = "Family", 
        title = "EAST region") +
   theme_bw() +
   theme(axis.text.y = element_blank(),
@@ -741,36 +589,180 @@ if (isTRUE(East_English_Channel)) {
 
 ```
 
+## 3.5. Spatial bloc cross-validation 
+
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+
+#if (isTRUE(West_English_Channel)) {
+
+#west_3folds <- readRDS(here("01_DATA/folds_CV/west_3folds.rds"))
+#ggplot(west_3folds) +
+#  geom_point(aes(x = lon, y = lat, color = factor(spatial_zone)),
+#             size = 5, alpha = 0.7) +
+#  geom_text(aes(x = lon, y = lat, label = fold_id),
+#            size = 3) +
+#  facet_wrap(~ year, nrow=2) +
+#  theme_bw() +
+#  labs(title = "Western English Channel — 21 folds (3 per year)", 
+#       color = "Zone", x = NULL, y = NULL)
+#}
+
+```
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+
+#if (isTRUE(West_English_Channel)) blockedCV_by_region$west$cv_scores
+
+```
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+
+#if (isTRUE(West_English_Channel)) {
+  
+#  blockedCV_summary_west <- imap_dfr(
+#    blockedCV_by_region$west$cv_outputs,
+#    function(mesh_list, mesh) {
+#      purrr::imap_dfr(mesh_list, function(resp_list, response) {
+#        purrr::imap_dfr(resp_list, function(cv, family) {
+#          tibble(mesh = mesh,
+#                 response = response,
+#                 family = family,
+#                 n_folds_tot = length(cv$pdHess),
+#                 n_converged = sum(cv$pdHess),
+#                 pourcent_converged = 100 * mean(cv$pdHess),
+#                 all_converged = isTRUE(cv$converged))
+#        })
+#      })
+#    })
+#  blockedCV_summary_west
+  
+#}
+
+```
+```{r echo=FALSE, fig.height=4, fig.width=10, message=FALSE, warning=FALSE}
+
+#if (isTRUE(West_English_Channel)) {
+#  blockedCV <- blockedCV_by_region$west$cv_scores
+#  blockedCV_df <- blockedCV %>%
+#    group_by(response) %>%
+#    mutate(delta_sumLL = sum_loglik - max(sum_loglik))%>%
+#    ungroup()
+  
+#  ggplot(blockedCV_df,
+#       aes(x = delta_sumLL, y = 1, color = family, shape = family)) +
+#  geom_point(size = 4) +
+#  facet_grid(response ~ mesh) +
+#  scale_color_manual(values = family_colors)+
+#  labs(x = "CV sum_loglik", y = NULL, color = "Family", shape = "Family", 
+#       title = "WEST region") +
+#  theme_bw() +
+#  theme(axis.text.y = element_blank(),
+#        axis.ticks.y = element_blank(),
+#        legend.position = "top")
+#} 
+
+```
 <br/>
 
-## 3.6. Random cross-validation 
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+
+#if (isTRUE(East_English_Channel)) {
+  
+#east_4folds <- readRDS(here("01_DATA/folds_CV/east_4folds.rds"))
+#ggplot(east_4folds) +
+#  geom_point(aes(x = lon, y = lat, color = factor(spatial_zone)),
+#             size = 5, alpha = 0.7) +
+#  geom_text(aes(x = lon, y = lat, label = fold_id),
+#            size = 3) +
+#  facet_wrap(~ year, nrow=2) +
+#  theme_bw() +
+#  labs(title = "Eastern English Channel — 28 folds (4 per year)", 
+#       color = "Zone", x = NULL, y = NULL)
+#}
+
+```
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+
+#if (isTRUE(East_English_Channel)) blockedCV_by_region$east$cv_scores
+
+```
+```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+
+#if (isTRUE(East_English_Channel)) {
+#  
+#  blockedCV_summary_east <- imap_dfr(
+#    blockedCV_by_region$east$cv_outputs,
+#    function(mesh_list, mesh) {
+#      purrr::imap_dfr(mesh_list, function(resp_list, response) {
+#        purrr::imap_dfr(resp_list, function(cv, family) {
+#          tibble(mesh = mesh,
+#                 response = response,
+#                 family = family,
+#                 n_folds_tot = length(cv$pdHess),
+#                 n_converged = sum(cv$pdHess),
+#                 pourcent_converged = 100 * mean(cv$pdHess),
+#                 all_converged = isTRUE(cv$converged))
+#        })
+#      })
+#    })
+#  blockedCV_summary_east
+  
+#}
+
+```
+
+```{r echo=FALSE, fig.height=4, fig.width=10, message=FALSE, warning=FALSE}
+
+#if (isTRUE(East_English_Channel)) {
+#  blockedCV <- blockedCV_by_region$east$cv_scores
+#  blockedCV_df <- blockedCV %>%
+#    group_by(response) %>%
+#    mutate(delta_sumLL = sum_loglik - max(sum_loglik))%>%
+#    ungroup()
+#  
+#    ggplot(blockedCV_df,
+#       aes(x = delta_sumLL, y = 1, color = family, shape = family)) +
+#  geom_point(size = 4) +
+#  facet_grid(response ~ mesh) +
+#  scale_color_manual(values = family_colors)+
+#  labs(x = "CV sum_loglik", y = NULL, color = "Family", shape = "Family", 
+#       title = "EAST region") +
+#  theme_bw() +
+#  theme(axis.text.y = element_blank(),
+#        axis.ticks.y = element_blank(),
+#        legend.position = "top")
+#} 
+
+```
+
+<br/>
+
+## 3.6. Repeated random cross-validation 
 
 ```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
 
-if (isTRUE(West_English_Channel)) randomCV_by_region$west$cv_scores
+if (isTRUE(West_English_Channel)) repeated_randomCV_by_region$west$cv_scores
 
 
 ```
 ```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
 
-if (isTRUE(West_English_Channel)) {
-  randomCV_summary_west <- purrr::imap_dfr(
-    randomCV_by_region$west$cv_outputs,
-    function(mesh_list, mesh) {
-      purrr::imap_dfr(mesh_list, function(resp_list, response_name) {
-        purrr::imap_dfr(resp_list, function(cv, family_name) {
-          tibble(mesh = mesh,
-                 response = response_name,
-                 family = family_name,
-                 n_folds_tot = length(cv$pdHess),
-                 n_converged = sum(cv$pdHess),
-                 pourcent_converged = 100 * mean(cv$pdHess),
-                 all_converged = cv$converged)
-          })
-        })
-    })
-  randomCV_summary_west
-}
+#if (isTRUE(West_English_Channel)) {
+#  repeated_randomCV_summary_west <- purrr::imap_dfr(
+#    repeated_randomCV_by_region$west$cv_outputs,
+#    function(mesh_list, mesh) {
+#      purrr::imap_dfr(mesh_list, function(resp_list, response_name) {
+#        purrr::imap_dfr(resp_list, function(cv, family_name) {
+#          tibble(mesh = mesh,
+#                 response = response_name,
+#                 family = family_name,
+#                 n_folds_tot = length(cv$pdHess),
+#                 n_converged = sum(cv$pdHess),
+#                 pourcent_converged = 100 * mean(cv$pdHess),
+#                 all_converged = cv$converged)
+#          })
+#        })
+#    })
+#  randomCV_summary_west
+#}
 
 ```
 ```{r echo=FALSE, fig.height=4, fig.width=10, message=FALSE, warning=FALSE}
@@ -806,24 +798,24 @@ if (isTRUE(East_English_Channel)) randomCV_by_region$east$cv_scores
 ```
 ```{r echo=FALSE, fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
 
-if (isTRUE(East_English_Channel)) {
-  randomCV_summary_east <- imap_dfr(
-    randomCV_by_region$east$cv_outputs,
-      function(mesh_list, mesh) {
-        purrr::imap_dfr(mesh_list, function(resp_list, response_name) {
-          purrr::imap_dfr(resp_list, function(cv, family_name) {
-            tibble(mesh = mesh,
-                   response = response_name,
-                   family = family_name,
-                   n_folds_tot = length(cv$pdHess),
-                   n_converged = sum(cv$pdHess),
-                   pourcent_converged = 100 * mean(cv$pdHess),
-                   all_converged = cv$converged)
-            })
-          })
-        })
-  randomCV_summary_east
-}
+#if (isTRUE(East_English_Channel)) {
+#  randomCV_summary_east <- imap_dfr(
+#    randomCV_by_region$east$cv_outputs,
+#      function(mesh_list, mesh) {
+#        purrr::imap_dfr(mesh_list, function(resp_list, response_name) {
+#          purrr::imap_dfr(resp_list, function(cv, family_name) {
+#            tibble(mesh = mesh,
+#                   response = response_name,
+#                   family = family_name,
+#                   n_folds_tot = length(cv$pdHess),
+#                   n_converged = sum(cv$pdHess),
+#                   pourcent_converged = 100 * mean(cv$pdHess),
+#                   all_converged = cv$converged)
+#            })
+#          })
+#        })
+#  randomCV_summary_east
+#}
 
 ```
 
