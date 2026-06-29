@@ -29,9 +29,9 @@ source(here::here('04_MODEL/packages/packages.R'))
 # sp_scientific <- "Pollachius pollachius"       # Pollack / Lieu jaune
 # sp_scientific <- "Squalus acanthias"           # Spiny dogfish / Aiguillat commun
 # sp_scientific <- "Trachurus trachurus"         # Atlantic horse mackerel / Chinchard commun
-# sp_scientific <- "Zeus faber"                  # John Dory / Saint-Pierre
+sp_scientific <- "Zeus faber"                  # John Dory / Saint-Pierre
 # sp_scientific <- "Clupea harengus"             # Atlantic herring / Hareng de l’Atlantique
-sp_scientific <- "Solea solea"                 # Common sole / Sole commune
+# sp_scientific <- "Solea solea"                 # Common sole / Sole commune
 
 sp_name_safe <- gsub("[^A-Za-z0-9_]", "_", sp_scientific)
 
@@ -70,17 +70,17 @@ source(here::here("04_MODEL/functions_all_mesh_configs/create_mesh_all_configs.R
 #                     max_edge_in = c(5, 10, 15, 25, 35, 50, 75, 100),
 #                     max_edge_out = rep(100, 8))
 # 
-# east_params <- list(cutoff_values = c(1, 2, 3, 5, 7, 10, 15, 20),
-#                     max_edge_in = c(5, 10, 15, 25, 35, 50, 75, 100),
-#                     max_edge_out = rep(100, 8))
+east_params <- list(cutoff_values = c(1, 2, 3, 5, 7, 10, 15, 20),
+                    max_edge_in = c(5, 10, 15, 25, 35, 50, 75, 100),
+                    max_edge_out = rep(100, 8))
 
-west_params <- list(cutoff_values = c(15, 20),
-                    max_edge_in = c(75, 100),
-                    max_edge_out = rep(100, 2))
-
-east_params <- list(cutoff_values = c(15, 20),
-                    max_edge_in = c(75, 100),
-                    max_edge_out = rep(100, 2))
+# west_params <- list(cutoff_values = c(15, 20),
+#                     max_edge_in = c(75, 100),
+#                     max_edge_out = rep(100, 2))
+# 
+# east_params <- list(cutoff_values = c(15, 20),
+#                     max_edge_in = c(75, 100),
+#                     max_edge_out = rep(100, 2))
 
 meshes_by_region <- list()
 
@@ -184,15 +184,12 @@ if (isTRUE(East_English_Channel)) {
 # ------------------------------------------------------------------------------#
 ####  cAIC weights  #### 
 # ------------------------------------------------------------------------------#
-# source(here::here("04_MODEL/functions_all_mesh_configs/AIC_weights_all_mesh_configs.R"))
-# AIC_by_region <- list()
-# 
-# if (isTRUE(West_English_Channel)) {
-#   AIC_by_region$west <- compute_cAIC_weights(converged_models, "west")
-# }
-# if (isTRUE(East_English_Channel)) {
-#   AIC_by_region$east <- compute_cAIC_weights(converged_models, "east")
-# }
+source(here::here("04_MODEL/functions_all_mesh_configs/AIC_weights_all_mesh_configs.R"))
+AIC_by_region <- list()
+
+if (isTRUE(East_English_Channel)) {
+  AIC_by_region$east <- compute_cAIC_weights(converged_models, "east")
+}
 
 
 # ------------------------------------------------------------------------------#
