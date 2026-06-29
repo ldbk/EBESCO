@@ -23,20 +23,17 @@ residuals_withoutRF <- function(data_CGFS, region = "region") {
   resids_withoutRF <- residuals(model_withoutRF, type = "mle-mvn")
   resids_withoutRF <- tibble::tibble(residuals = resids_withoutRF)
   resids_for_plot <- dplyr::bind_cols(data_CGFS, resids_withoutRF)
-
-  # resids_for_plot <- resids_for_plot %>%
-  #   dplyr::group_by(year) %>%
-  #   dplyr::filter(residuals >= quantile(residuals, 0.025),
-  #                 residuals <= quantile(residuals, 0.975)) %>%
-  #   dplyr::ungroup()
   
   ggplot2::ggplot(resids_for_plot, aes(lon, lat, fill = residuals)) +
     ggplot2::geom_point(color = "grey", size = 2.5, shape = 21) +
-    ggplot2::scale_fill_gradient2(low = "red", high = "blue")+
-    ggplot2::facet_wrap(~ year) +
-    ggplot2::labs(x = "", y = "", fill = "Quantile residuals",
-                  title = bquote(italic(.(sp_scientific)) ~ " - " ~ .(region)))+
-    ggplot2::theme_bw()
+    ggplot2::scale_fill_gradient2(low = "red", high = "blue") +
+    ggplot2::facet_wrap(~year, nrow = 2) +
+    ggplot2::labs(x = "", y = "", fill = "Quantiles\nrésiduals",
+                  title = bquote(italic(.(sp_scientific)) ~ " - " ~ .(region))) +
+    ggplot2::theme_bw() +
+    ggplot2::theme(panel.grid = ggplot2::element_blank(), 
+                   strip.background = ggplot2::element_rect(fill = "grey90"),
+                   strip.text = ggplot2::element_text(face = "bold"))
   
 }
 
