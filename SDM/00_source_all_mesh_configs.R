@@ -164,22 +164,13 @@ params_all <- bind_rows(params_west, params_east) %>%
 ####  SIMULATION BASED ANALYTICAL RANDOMIZED QUANTILE RESIDUALS  #### 
 # ------------------------------------------------------------------------------#
 
-source(here::here("04_MODEL/functions_all_mesh_configs/RMSE_MAE_from_sim_all_mesh_configs.R"))
-simulation_errors_by_region <- list()
+source(here::here("04_MODEL/functions_all_mesh_configs/dharmaQQplot_from_sim_all_mesh_configs.R"))
+dharmaQQplot_by_region <- list()
 if (isTRUE(West_English_Channel)) {
-  simulation_errors_by_region$west <- rmse_mae_from_sim(converged_models, "west")
+  dharmaQQplot_by_region$west <- dharma_from_sim(converged_models, "west")
 }
 if (isTRUE(East_English_Channel)) {
-  simulation_errors_by_region$east <- rmse_mae_from_sim(converged_models, "east")
-}
-
-source(here::here("04_MODEL/functions_all_mesh_configs/moran_from_sim_all_mesh_configs.R"))
-moran_by_region <- list()
-if (isTRUE(West_English_Channel)) {
-  moran_by_region$west <- moran_from_sim(converged_models, "west")
-}
-if (isTRUE(East_English_Channel)) {
-  moran_by_region$east <- moran_from_sim(converged_models, "east")
+  dharmaQQplot_by_region$east <- dharma_from_sim(converged_models, "east")
 }
 # ------------------------------------------------------------------------------#
 ####  cAIC weights  #### 
@@ -187,10 +178,12 @@ if (isTRUE(East_English_Channel)) {
 source(here::here("04_MODEL/functions_all_mesh_configs/AIC_weights_all_mesh_configs.R"))
 AIC_by_region <- list()
 
+if (isTRUE(West_English_Channel)) {
+  AIC_by_region$west <- compute_cAIC_weights(converged_models, "west")
+}
 if (isTRUE(East_English_Channel)) {
   AIC_by_region$east <- compute_cAIC_weights(converged_models, "east")
 }
-
 
 # ------------------------------------------------------------------------------#
 ####  RANDOM CROSS-VALIDATION #### 

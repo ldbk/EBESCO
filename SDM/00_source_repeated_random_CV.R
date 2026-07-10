@@ -20,10 +20,10 @@ source(here::here('04_MODEL/packages/packages.R'))
 # sp_scientific <- "Chelidonichthys cuculus"     # Red gurnard / Grondin rouge
 # sp_scientific <- "Chelidonichthys lucerna"     # Tub gurnard / Grondin perlon
 # sp_scientific <- "Conger conger"               # European conger / Congre d'Europe
-# sp_scientific <- "Dicentrarchus labrax"        # European seabass / Bar européen
+sp_scientific <- "Dicentrarchus labrax"        # European seabass / Bar européen
 # sp_scientific <- "Engraulis encrasicolus"      # European anchovy / Anchois
 # sp_scientific <- "Micromesistius poutassou"    # Blue whiting / Merlan bleu
-sp_scientific <- "Trachurus trachurus"         # Atlantic horse mackerel / Chinchard commun
+# sp_scientific <- "Trachurus trachurus"         # Atlantic horse mackerel / Chinchard commun
 # sp_scientific <- "Zeus faber"                  # John Dory / Saint-Pierre
 # sp_scientific <- "Solea solea"                 # Common sole / Sole commune
 

@@ -223,7 +223,7 @@ all_activesoundprod_CGFS_10percent %>%
   ggplot2::scale_fill_distiller(palette = "RdYlBu",
                        labels = scales::label_number()) +
   ggplot2::facet_wrap(~region)+
-  ggplot2::labs(x = "Years", y = NULL, fill = "Occurence\nin hauls (%)")+
+  ggplot2::labs(x = "Years", y = NULL, fill = "Occurrence\nin hauls (%)")+
   ggplot2::theme_bw() +
   ggplot2::theme(axis.text.y = element_text(size = 10, face = "italic"),
                  axis.title.x = element_text(size = 10, margin = margin(t = 8)),
