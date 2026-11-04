@@ -69,7 +69,6 @@ library(ggplot2)
 library(dplyr)
 library(here)
 library(devtools)
-library(TMBhelper)
 library(TMB)
 library(tidyverse)
 library(pak)
@@ -500,35 +499,50 @@ sp_data_CGFS_density %>%
 
 ```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
 
-source(here('04_MODEL/functions/simulate_plot_distribution.R'))
-
 if (isTRUE(West_English_Channel)) {
-plot_dist_west_biomass <- sim_plot_distrib(data_CGFS_west, "west", data_CGFS_west$totalWeightKg)
-plot_dist_west_density <- sim_plot_distrib(data_CGFS_west, "west", data_CGFS_west$densityKgKm2)
+  source(here('04_MODEL/functions/simulate_candidate_distributions.R'))
+  plot_dist_west_biomass <- sim_plot_distrib(data_CGFS_west, 
+                                             "west", 
+                                             data_CGFS_west$totalWeightKg)
+  plot_dist_west_biomass
 }
-
-plot_dist_west_biomass
 
 ```
 ```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
-plot_dist_west_density
+
+if (isTRUE(West_English_Channel)) {
+    source(here('04_MODEL/functions/simulate_candidate_distributions.R'))
+    plot_dist_west_biomass <- sim_plot_distrib(data_CGFS_west, 
+                                               "west", 
+                                               data_CGFS_west$totalWeightKg)
+    plot_dist_west_biomass
+}
 ```
 <br>
 
 ```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
 
-source(here('04_MODEL/functions/simulate_plot_distribution.R'))
-
 if (isTRUE(East_English_Channel)) {
-plot_dist_east_biomass <- sim_plot_distrib(data_CGFS_east, "east", data_CGFS_east$totalWeightKg)
-plot_dist_east_density <- sim_plot_distrib(data_CGFS_east, "east", data_CGFS_east$densityKgKm2)
+  source(here('04_MODEL/functions/simulate_candidate_distributions.R'))
+  plot_dist_east_biomass <- sim_plot_distrib(data_CGFS_east, 
+                                             "east", 
+                                             data_CGFS_east$totalWeightKg)
+  plot_dist_east_biomass
 }
 
-plot_dist_east_biomass
 
 ```
 ```{r echo=FALSE, fig.height=8, fig.width=12, message=FALSE, warning=FALSE}
-plot_dist_east_density
+
+if (isTRUE(East_English_Channel)) {
+  source(here('04_MODEL/functions/simulate_candidate_distributions.R'))
+  plot_dist_east_density <- sim_plot_distrib(data_CGFS_east,
+                                             "east", 
+                                             data_CGFS_east$densityKgKm2)
+  plot_dist_east_density
+}
+
+
 ```
 <br>
 <br>

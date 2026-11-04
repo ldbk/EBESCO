@@ -1,252 +1,215 @@
 
-# ------------------------------------------------------------------------------#
-# ------------------------------------------------------------------------------#
-# SCRIPT TO RUN SPECIES DISTRIBUTION MODELS
-# ------------------------------------------------------------------------------#
-# ------------------------------------------------------------------------------#
-rm(list=ls())
+# ============================================================================== #
+# SPECIES DISTRIBUTION MODELLING WORKFLOW
+#
+# Objectives:
+# - Prepare species-specific survey data for the selected study regions.
+# - Explore spatial autocorrelation and preliminary model diagnostics.
+# - Generate spatial meshes at different resolutions.
+# - Fit candidate sdmTMB models across likelihood formulations
+#   and mesh resolutions.
+# - Assess model convergence, parameter estimates and diagnostics.
+# - Evaluate goodness-of-fit, predictive performance and
+#   prediction uncertainty using complementary metrics.
+# - Generate spatial predictions, uncertainty estimates and associated maps.
+# - Compile model results and diagnostics into an HTML report.
+# ============================================================================== #
 
-# ------------------------------------------------------------------------------#
-####  LOAD PACKAGES  #### 
-# ------------------------------------------------------------------------------#
-source(here::here('04_MODEL/packages/packages.R'))
+# ------------------------------------------------------------------------------ #
+#### 1. INITIALISE THE MODELLING ENVIRONMENT ####
+# ------------------------------------------------------------------------------ #
 
-# ------------------------------------------------------------------------------#
-####  DEFINE PARAMETERS  #### 
-# ------------------------------------------------------------------------------#
+# Clear the current R environment
+rm(list = ls())
+
+# Load required packages
+source(here::here("04_MODEL/packages/packages.R"))
+
+# ------------------------------------------------------------------------------ #
+#### 2. DEFINE SPECIES AND STUDY REGIONS ####
+# ------------------------------------------------------------------------------ #
+
+# Select the species to model
 ## Define species
 # ----------------#
 # sp_scientific <- "Capros aper"                 # Boarfish / Sanglier
 # sp_scientific <- "Chelidonichthys cuculus"     # Red gurnard / Grondin rouge
 # sp_scientific <- "Chelidonichthys lucerna"     # Tub gurnard / Grondin perlon
-# sp_scientific <- "Conger conger"               # European conger / Congre d'Europe
+# sp_scientific <- "Conger conger"               # European conger / Congre d"Europe
 # sp_scientific <- "Dicentrarchus labrax"        # European seabass / Bar européen
 # sp_scientific <- "Engraulis encrasicolus"      # European anchovy / Anchois
-# sp_scientific <- "Eutrigla gurnardus"          # Grey gurnard / Grondin gris
-# sp_scientific <- "Melanogrammus aeglefinus"    # Haddock / Églefin
+# sp_scientific <- "Hippocampus hippocampus"     # seahorse / Hippocampe
 # sp_scientific <- "Merluccius merluccius"       # European hake / Merlu européen
 # sp_scientific <- "Micromesistius poutassou"    # Blue whiting / Merlan bleu
-# sp_scientific <- "Pollachius pollachius"       # Pollack / Lieu jaune
-# sp_scientific <- "Squalus acanthias"           # Spiny dogfish / Aiguillat commun
-# sp_scientific <- "Trachurus trachurus"         # Atlantic horse mackerel / Chinchard commun
+sp_scientific <- "Trachurus trachurus"         # Atlantic horse mackerel / Chinchard commun
 # sp_scientific <- "Zeus faber"                  # John Dory / Saint-Pierre
-# sp_scientific <- "Clupea harengus"             # Atlantic herring / Hareng de l’Atlantique
 # sp_scientific <- "Solea solea"                 # Common sole / Sole commune
-
-sp_name_safe <- gsub("[^A-Za-z0-9_]", "_", sp_scientific)
 
 
 ## Define study refions for the species 
 # ----------------------------------------#
+# Load the previously established species-by-region selection table.
+# For each species, TRUE/FALSE indicates whether it was selected
+# for modelling in the eastern and western English Channel.
 species_criteria_region <- readRDS(here::here("01_DATA/species_criteria_region_10percent.rds"))%>%
   dplyr::filter(species == sp_scientific)
 
+# Set the study regions according to the predefined selection.
 West_English_Channel = isTRUE(species_criteria_region$west_region)
 East_English_Channel = isTRUE(species_criteria_region$east_region)
 
-# ------------------------------------------------------------------------------#
-####  LOAD AND TRANSFORM DATA  #### 
-# ------------------------------------------------------------------------------#
-source(here::here('03_TRANSFORM_DATA/transform_data.R'))
-
-# ------------------------------------------------------------------------------#
-####  COMPUTE AND PLOT MORAN's INDEX = SPATIAL AUTOCORRELATION  #### 
-# ------------------------------------------------------------------------------#
-source(here::here('04_MODEL/functions/compute_plot_Moran.R'))
-
-# ------------------------------------------------------------------------------#
-####  PLOT RESIDUALS OF MODEL FITTED WITHOUT RANDOM FIELD #### 
-# ------------------------------------------------------------------------------#
-source(here::here('04_MODEL/functions/compute_plot_residuals_withoutRF.R'))
-
-# ------------------------------------------------------------------------------#
-####  CREATE THE MESH  #### 
-# ------------------------------------------------------------------------------#
-source(here::here('04_MODEL/functions/create_mesh_species.R'))
-source(here::here('04_MODEL/functions/MSA_add_boundary_to_mesh.R'))
-
-mesh_by_region <- list()
-# If West_English_Channel is TRUE, build the west mesh
-if (isTRUE(West_English_Channel)) {
-  mesh_by_region$west <- create_mesh_by_region(region_name = "west", sp_name_safe)
-}
-# If East_English_Channel is TRUE, build the east mesh
-if (isTRUE(East_English_Channel)) {
-  mesh_by_region$east <- create_mesh_by_region(region_name = "east", sp_name_safe)
-}
+# Create the species-specific output directory
+source(here::here("04_MODEL/functions/setup_model_outputs.R"))
 
 
-# ------------------------------------------------------------------------------#
-####  BUILD & FIT CANDITATE MODELS  #### 
-# ------------------------------------------------------------------------------#
-# Vector of response variables to be tested sequentially
-responses <- c("totalWeightKg", "densityKgKm2")
+# ------------------------------------------------------------------------------ #
+#### 3. LOAD AND PREPARE SURVEY DATA ####
+# ------------------------------------------------------------------------------ #
 
-# Fixed-effects
+# Load and transform CGFS survey data for the selected species and regions
+source(here::here("03_TRANSFORM_DATA/transform_data.R"))
+
+
+# ------------------------------------------------------------------------------ #
+#### 4. ASSESS SPATIAL AUTOCORRELATION AND PRELIMINARY RESIDUALS ####
+# ------------------------------------------------------------------------------ #
+
+# Compute and plot Moran's I to assess spatial autocorrelation
+source(here::here("04_MODEL/functions/assess_spatial_autocorrelation.R"))
+
+# Fit preliminary models without random fields and examine residuals
+source(here::here("04_MODEL/functions/assess_residuals_without_random_fields.R"))
+
+
+# ------------------------------------------------------------------------------ #
+#### 5. GENERATE SPATIAL MESH CONFIGURATIONS ####
+# ------------------------------------------------------------------------------ #
+
+# Load the function used to add boundaries to spatial meshes
+source(here::here("04_MODEL/functions/add_mesh_boundary.R"))
+
+# Define mesh parameters for the Western English Channel
+west_params <- list(cutoff_values = c(3, 5, 7, 10, 15),
+                    max_edge_in = c(15, 25, 35, 50, 75),
+                    max_edge_out = rep(100, 5))
+
+# Define mesh parameters for the Eastern English Channel
+east_params <- list(cutoff_values = c(3, 5, 7, 10, 15),
+                    max_edge_in = c(15, 25, 35, 50, 75),
+                    max_edge_out = rep(100, 5))
+
+# Generate all mesh configurations for the selected regions
+source(here::here("04_MODEL/functions/create_meshes.R"))
+
+
+# ------------------------------------------------------------------------------ #
+#### 6. DEFINE AND FIT CANDIDATE MODELS ####
+# ------------------------------------------------------------------------------ #
+
+# Select response variables: "totalWeightKg" and/or "densityKgKm2"
+responses <- c("totalWeightKg")
+
+# Define the fixed-effects formula (1 = as an intercept-only model)
 fixed_effect <- "1"
 
+# Fit candidate models across all mesh configurations
 source(here::here("04_MODEL/functions/fit_candidate_models.R"))
 
-# object to store fitted models
-fitted_models_by_region <- list()
 
-if (isTRUE(East_English_Channel)) {
-  fitted_models_by_region$east <- fit_candidate_models(data_CGFS = data_CGFS_east, 
-                                                       mesh = mesh_by_region$east$mesh, 
-                                                       region_name = "east")
-}
+# ------------------------------------------------------------------------------ #
+#### 7. CHECK MODEL CONVERGENCE AND EXTRACT PARAMETERS ####
+# ------------------------------------------------------------------------------ #
 
-if (isTRUE(West_English_Channel)) {
-  fitted_models_by_region$west <- fit_candidate_models(data_CGFS = data_CGFS_west, 
-                                                       mesh = mesh_by_region$west$mesh, 
-                                                       region_name = "west")
-}
+# Assess model convergence and numerical diagnostics
+source(here::here("04_MODEL/functions/check_model_convergence.R"))
 
-# ------------------------------------------------------------------------------#
-#### SANITY FILTER FITTED MODELS ####
-# ------------------------------------------------------------------------------#
+# Retain models that pass the convergence checks (on sanity results)
+source(here::here("04_MODEL/functions/extract_converged_models.R"))
 
-source(here::here("04_MODEL/functions/sanity_filter_models.R"))
-
-sanity_by_region <- list()
-# Apply sanity checks to West English Channel models
-if (isTRUE(West_English_Channel)) {
-  sanity_by_region$west <- sanity_filter_models(fitted_models_by_region$west)
-}
-# Apply sanity checks to East English Channel models
-if (isTRUE(East_English_Channel)) {
-  sanity_by_region$east <- sanity_filter_models(fitted_models_by_region$east)
-}
+# Extract parameter estimates from converged models
+source(here::here("04_MODEL/functions/extract_model_parameters.R"))
 
 
-# ------------------------------------------------------------------------------#
-#### EXTRACT CONVERGED MODELS and THEIR PARAMETER ESTIMATES ####
-# ------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------ #
+#### 8. ASSESS MODEL RESIDUAL DIAGNOSTICS ####
+# ------------------------------------------------------------------------------ #
 
-source(here::here("04_MODEL/functions/get_converged_models.R"))
-converged_models <- get_converged_models(sanity_by_region)
-
-source(here::here("04_MODEL/functions/extract_parameter_estimates.R"))
-params_west <- extract_params_converged_models(converged_models, region = "west")%>%
-  mutate(region = "west")
-
-params_east <- extract_params_converged_models(converged_models, region = "east")%>%
-  mutate(region = "east")
-
-params_all <- bind_rows(params_west, params_east) %>%
-  mutate(region = factor(region, levels = c("west", "east")))
+# Generate simulation-based DHARMa residual diagnostics
+source(here::here("04_MODEL/functions/compute_dharma_residuals.R"))
 
 
-# ------------------------------------------------------------------------------#
-####  COMPUTE ANALYTICAL RANDOMIZED QUANTILE RESIDUALS  #### 
-# ------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------ #
+#### 8. ASSESS MODEL GOODNESS-OF FIT ####
+# ------------------------------------------------------------------------------ #
 
-source(here::here("04_MODEL/functions/analytical_randomized_quantile_residuals.R"))
-residuals_by_region <- list()
+# Compute conditional AIC and delta cAIC for model comparison
+source(here::here("04_MODEL/functions/compute_model_caic.R"))
 
-# West English Channel
-if (isTRUE(West_English_Channel)) {
-  residuals_by_region$west <- randomized_quantile_resids(converged_models, "west")
-}
-# East English Channel
-if (isTRUE(East_English_Channel)) {
-  residuals_by_region$east <- randomized_quantile_resids(converged_models, "east")
-}
+# Compute coefficient of determination (R²) between observations and predictions
+source(here::here("04_MODEL/functions/compute_R_squared.R"))
 
 
-# ------------------------------------------------------------------------------#
-####  SIMULATION BASED ANALYTICAL RANDOMIZED QUANTILE RESIDUALS  #### 
-# ------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------ #
+#### 9. PERFORM REPEATED RANDOM CROSS-VALIDATION ####
+# ------------------------------------------------------------------------------ #
 
-source(here::here("04_MODEL/functions/simulation_based_randomized_quantile_residuals.R"))
-simulation_errors_by_region <- list()
-if (isTRUE(West_English_Channel)) {
-  simulation_errors_by_region$west <- rmse_mae_from_sim(converged_models, "west")
-}
-if (isTRUE(East_English_Channel)) {
-  simulation_errors_by_region$east <- rmse_mae_from_sim(converged_models, "east")
-}
+# Define the number of repetitions and folds
+n_repeats <- 10
+k_folds <- 10
+
+# Run repeated random cross-validation for avaluating model predictive performance
+source(here::here("04_MODEL/functions/run_repeated_random_cross_validation.R"))
 
 
-# ------------------------------------------------------------------------------#
-####  cAIC weights  #### 
-# ------------------------------------------------------------------------------#
-source(here::here("04_MODEL/functions/AIC_weights.R"))
-AIC_by_region <- list()
 
-if (isTRUE(West_English_Channel)) {
-  AIC_by_region$west <- compute_cAIC_weights(converged_models, "west")
-}
-if (isTRUE(East_English_Channel)) {
-  AIC_by_region$east <- compute_cAIC_weights(converged_models, "east")
-}
-
-
-# ------------------------------------------------------------------------------#
-####  RANDOM CROSS-VALIDATION #### 
-# ------------------------------------------------------------------------------#
-source(here::here("04_MODEL/functions/cross_validation_random.R"))
-randomCV_by_region <- list()
-
-if (isTRUE(West_English_Channel)) {
-  randomCV_by_region$west <- random_CV(converged_models, "west")
-}
-if (isTRUE(East_English_Channel)) {
-  randomCV_by_region$east <-  random_CV(converged_models, "east")
-}
-
-
-# ------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------ #
 ####  SPATIO TEMPORAL BLOCKED CROSS-VALIDATION #### 
-# ------------------------------------------------------------------------------#
-source(here::here("04_MODEL/functions/cross_validation_spatiotemporal_block.R"))
-blockedCV_by_region <- list()
+# ------------------------------------------------------------------------------ #
 
-if (isTRUE(West_English_Channel)) {
-  blockedCV_by_region$west <- spatiotemp_blocked_CV(converged_models, "west")
-}
-if (isTRUE(East_English_Channel)) {
-  blockedCV_by_region$east <-  spatiotemp_blocked_CV(converged_models, "east")
-}
+source(here::here("04_MODEL/functions/run_block_cross_validation.R"))
 
 
-# ------------------------------------------------------------------------------#
-####  DESIGN THE PREDICTION GRID  ####
-# ------------------------------------------------------------------------------#
-# grid resolution in km
-res_km = 5
-source(here::here('04_MODEL/functions/design_grid.R'))
-grid_by_region <- list()
-if (isTRUE(West_English_Channel)) grid_by_region$west <- design_grids("west")
-if (isTRUE(East_English_Channel)) grid_by_region$east <- design_grids("east")
+
+# ------------------------------------------------------------------------------ #
+#### 10. GENERATE REGIONAL PREDICTION GRIDS ####
+# ------------------------------------------------------------------------------ #
+
+# Define prediction grid resolution in kilometres
+res_km <- 5
+
+# Generate prediction grids for the selected regions
+source(here::here("04_MODEL/functions/create_prediction_grid.R"))
 
 
-# ------------------------------------------------------------------------------#
-####  PREDICT ON THE GRID AND MAP PREDICTIONS ####
-# ------------------------------------------------------------------------------#
-source(here::here("04_MODEL/functions/predict_all_converged_models.R"))
-converged_models_predictions <- predict_all_converged_models(converged_models, grids_by_region)
+# ------------------------------------------------------------------------------ #
+#### 11. GENERATE MODEL PREDICTIONS AND BIOMASS MAPS ####
+# ------------------------------------------------------------------------------ #
 
-source(here::here("04_MODEL/functions/map_predictions_common_fill_limits.R"))
-# source(here::here("04_MODEL/functions/map_predictions.R"))
+# Predict converged models and compute bias-corrected abundance indices
+source(here::here("04_MODEL/functions/predict_converged_models.R"))
 
-
-# ------------------------------------------------------------------------------#
-####  SIMULATE & COMPUTE, PLOT COEFFICIENT OF VARIATION ####
-# ------------------------------------------------------------------------------#
-source(here::here("04_MODEL/functions/simulate_compute_plot_coeff_variation.R"))
-
-# ------------------------------------------------------------------------------#
-####  SAVE OUTPUTS ####  
-# ------------------------------------------------------------------------------#
-source(here::here("04_MODEL/functions/save_model_diagnostics.R"))
+# Generate spatial and spatiotemporal prediction maps
+source(here::here("04_MODEL/functions/map_model_predictions.R"))
 
 
-# ------------------------------------------------------------------------------#
-####  SAVE ALL PLOTS INTO HTLM FILE ####
-# ------------------------------------------------------------------------------#
-rmarkdown::render(input = here::here("04_MODEL", "report", "report.Rmd"),
+
+# ------------------------------------------------------------------------------ #
+#### 12. ESTIMATE AND MAP PREDICTION UNCERTAINTY ####
+# ------------------------------------------------------------------------------ #
+
+# Compute simulation-based coefficients of variation
+source(here::here("04_MODEL/functions/compute_simulated_coefficient_variation.R"))
+
+# Generate annual maps of prediction uncertainty
+source(here::here("04_MODEL/functions/plot_simulated_coefficient_variation.R"))
+
+
+# ------------------------------------------------------------------------------ #
+#### 13. GENERATE THE MODELLING REPORT ####
+# ------------------------------------------------------------------------------ #
+
+# Render the HTML report containing model results and diagnostics
+rmarkdown::render(input = here::here("04_MODEL/report/sdm_report.Rmd"),
                   output_dir = new_repertory_model,
                   output_file = paste0(sp_name_safe, "_report", ".html"))
-
 

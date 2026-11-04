@@ -1,121 +1,195 @@
 # ============================================================================== #
-#### FIT CANDIDATE MODELS ####
-# ============================================================================== 
+# FIT CANDIDATE SPATIOTEMPORAL SDMTMB MODELS
+#
+# Objectives:
+# - Fit candidate spatiotemporal models for each mesh configuration.
+# - Use alternative distribution families for biomass and biomass density.
+# - Account for swept area when modelling total catch biomass.
+# - Store successfully fitted models and fitting errors separately.
+# ============================================================================== #
 
-# Function that fits candidate models by region
-fit_candidate_models <- function(data_CGFS, mesh, region_name = "region") {
+
+
+# ------------------------------------------------------------------------------ #
+#### 1. DEFINE CANDIDATE MODEL FITTING FUNCTION ####
+# ------------------------------------------------------------------------------ #
+
+# Fit candidate models across mesh configurations, response variables and
+# distribution families for a given region.
+fit_candidate_models <- function(region_name) {
   
-  
-  # Specific case : probability of presence = 1 
-  if (sp_scientific == "Trachurus trachurus" && region_name == "west") {
-    # Define the candidate families for the different response variables 
-    families_by_response <- list(
-      # Candidate distributions for total biomass
-      totalWeightKg = list(
-        lognormal = lognormal(link = "log"),
-        gamma = Gamma(link = "log")
-      ),
-      # Candidate distributions for biomass density
-      densityKgKm2 = list(
-        lognormal = lognormal(link = "log"),
-        gamma = Gamma(link = "log")
-      )
-    )
-    
+  if (region_name == "west"){
+    data_CGFS = data_CGFS_west  
+    meshes_configurations = meshes_by_region$west
+    global_occurrence = species_criteria_region$global_occurrence_west
+  }  
+  else if (region_name == "east"){
+    data_CGFS = data_CGFS_east
+    meshes_configurations = meshes_by_region$east
+    global_occurrence = species_criteria_region$global_occurrence_east
   } else {
-    # Define the candidate families for the different response variables 
+    stop("region_name must be 'west' or 'east'")
+  }
+  
+  
+  # ---------------------------------------------------------------------------- #
+  #### 1.1. DEFINE CANDIDATE DISTRIBUTION FAMILIES / LIKELIHOODS ####
+  # ---------------------------------------------------------------------------- #
+  
+  # Select candidate distributions according to global species occurrence.
+  if (isTRUE(global_occurrence == 100)) {
+    # Species present in 100% of survey hauls
+    # Candidate distributions for total biomass and for biomass density
     families_by_response <- list(
-      # Candidate distributions for total biomass
+      totalWeightKg = list(lognormal = lognormal(link = "log"),
+                           gamma = Gamma(link = "log")),
+      densityKgKm2 = list(lognormal = lognormal(link = "log"),
+                          gamma = Gamma(link = "log"))
+    )
+  } else {
+    # Define candidate distributions for total biomass and biomass density.
+    families_by_response <- list(
       totalWeightKg = list(
         tweedie = sdmTMB::tweedie(link = "log"),
-        deltagamma = delta_gamma(link1 = "logit", link2 = "log"),
-        deltalognormal = delta_lognormal(link1 = "logit", link2 = "log"),
-        deltagammapoissonlink = delta_gamma(type = "poisson-link"),
-        deltalognormalpoissonlink = delta_lognormal(type = "poisson-link")
+        deltagamma = sdmTMB::delta_gamma(link1 = "logit", link2 = "log"),
+        deltalognormal = sdmTMB::delta_lognormal(link1 = "logit", link2 = "log"),
+        deltagammapoissonlink = sdmTMB::delta_gamma(type = "poisson-link"),
+        deltalognormalpoissonlink = sdmTMB::delta_lognormal(type = "poisson-link")
       ),
-      # Candidate distributions for biomass density
       densityKgKm2 = list(
         tweedie = sdmTMB::tweedie(link = "log"),
-        deltagamma = delta_gamma(link1 = "logit", link2 = "log"),
-        deltalognormal = delta_lognormal(link1 = "logit", link2 = "log")
+        deltagamma = sdmTMB::delta_gamma(link1 = "logit", link2 = "log"),
+        deltalognormal = sdmTMB::delta_lognormal(link1 = "logit", link2 = "log")
       )
     )
   }
   
+  # ---------------------------------------------------------------------------- #
+  #### 1.2. DEFINE RESPONSE-SPECIFIC OFFSETS ####
+  # ---------------------------------------------------------------------------- #
   
+  # Initialise the list of fitted candidate models
   fitted_candidate_models <- list()
   
-  
-  # Log-transformed swept area used as offset for total biomass
-  # No offset for density (already standardized per km²)
+  # Use log-transformed swept area as an offset for total biomass.
+  # Biomass density is already standardised per square kilometre.
   offset_by_response <- list(totalWeightKg = log(data_CGFS$sweptAreaKm2),
                              densityKgKm2  = NULL)
   
   
-  # ------------------------------------------------------------------------------#
-  # Loop over response variables
-  # ------------------------------------------------------------------------------#
-  for (response in responses) {
+  # ---------------------------------------------------------------------------- #
+  #### 1.3. LOOP OVER SPATIAL MESH CONFIGURATIONS ####
+  # ---------------------------------------------------------------------------- #
+  
+  # Fit candidate models using each predefined regional mesh
+  for (mesh_name in names(meshes_configurations)) {
     
-    # Construct the model formula for the current response
-    model_formula <- as.formula(paste(response, "~", fixed_effect))
+    # Retrieve the current spatial mesh
+    current_mesh <- meshes_configurations[[mesh_name]]$mesh
     
-    # Select the candidate families corresponding to the current response
-    families_chosen <- families_by_response[[response]]
+    # Initialise the model list for the current mesh
+    fitted_candidate_models[[mesh_name]] <- list()
     
-    # Select the offset argument for the current response (if any)
-    offset_arg <- offset_by_response[[response]]
-    
-    models_fitted <- list()              # Models that fitted successfully 
-    models_fit_failed <- list()          # Models that failed during model fitting
-    
-    
-    # ----------------------------------------------------------------------------#
-    # Loop over candidate families
-    # ----------------------------------------------------------------------------#
-    
-    for (family_name in names(families_chosen)) {
+    # -------------------------------------------------------------------------- #
+    #### 1.4. LOOP OVER RESPONSE VARIABLES ####
+    # -------------------------------------------------------------------------- #
+    for (response in responses) {
       
-      cat("[",region_name, "English Channel ] Fitting:", response, "-", family_name, "\n")
+      # Construct the model formula for the current response
+      model_formula <- as.formula(paste(response, "~", fixed_effect))
       
-      current_candidate_model <- tryCatch({
-        
-        # List of arguments passed to sdmTMB()
-        args <- list(
-          data = data_CGFS,
-          formula = model_formula,
-          mesh = mesh,
-          family = families_chosen[[family_name]],
-          spatial = "on",
-          time = "year",
-          spatiotemporal = "IID"
-        )
-        
-        # Add offset to the model only if it is defined
-        if (!is.null(offset_arg)) args$offset <- offset_arg
-        
-        # Fit the model using arguments
-        do.call(sdmTMB, args)
-        
-      }, error = function(e) e)   # Return the error object instead of stopping execution
+      # Select the candidate families corresponding to the current response
+      families_chosen <- families_by_response[[response]]
       
-      if (inherits(current_candidate_model, "error")) {
-        models_fit_failed[[family_name]] <- current_candidate_model$message    # Store the error message for this family
-        next
+      # Select the offset argument for the current response (if any)
+      offset_arg <- offset_by_response[[response]]
+      
+      # Initialise lists for successful and failed model fits
+      models_fitted <- list()              
+      models_fit_failed <- list()          
+      
+      
+      # ------------------------------------------------------------------------ #
+      #### 1.5. FIT CANDIDATE DISTRIBUTION FAMILIES / LIKELIHOODS ####
+      # ------------------------------------------------------------------------ #
+      for (family_name in names(families_chosen)) {
+        
+        # Report the current model configuration
+        cat("[",region_name, "English Channel ] Fitting:", mesh_name, "-", response, "-", family_name, "\n")
+        
+        # Fit the spatial and spatiotemporal model
+        # Capture fitting errors without interrupting subsequent models
+        current_candidate_model <- tryCatch({
+          
+          # Define the arguments passed to sdmTMB
+          args <- list(
+            data = data_CGFS,
+            formula = model_formula,
+            mesh = current_mesh,
+            family = families_chosen[[family_name]],
+            spatial = "on",
+            time = "year",
+            spatiotemporal = "IID"
+          )
+          
+          # Apply the swept-area offset when required
+          if (!is.null(offset_arg)) args$offset <- offset_arg
+          
+          # Fit the model using arguments
+          do.call(sdmTMB::sdmTMB, args)
+          
+        }, error = function(e) e)   # Return the error object instead of stopping execution
+        
+        # Store fitting errors and continue to the next family
+        if (inherits(current_candidate_model, "error")) {
+          models_fit_failed[[family_name]] <- current_candidate_model$message    
+          next
+        }
+        # Store successfully fitted models
+        models_fitted[[family_name]] <- current_candidate_model
       }
       
-      models_fitted[[family_name]] <- current_candidate_model
+      
+      # ------------------------------------------------------------------------ #
+      #### 1.6. STORE MODEL FITTING RESULTS ####
+      # ------------------------------------------------------------------------ #
+      
+      # Store successful fits and errors for each response and mesh
+      fitted_candidate_models[[mesh_name]][[response]] <- list(
+        models_fitted = models_fitted,                
+        models_fit_failed = models_fit_failed        
+      )
     }
     
-    fitted_candidate_models[[response]] <- list(
-      models_fitted = models_fitted,                # Models that fitted successfully for this response
-      models_fit_failed = models_fit_failed         # Models that failed during model fitting for this response
-    )
   }
-  
-  return(list(region = region_name,
-              fits   = fitted_candidate_models))
+  return(fitted_candidate_models)
   
 }
 
 
+# ------------------------------------------------------------------------------ #
+#### 2. FIT CANDIDATE MODELS BY REGION ####
+# ------------------------------------------------------------------------------ #
+
+# Initialise the list of fitted models by region
+fitted_models_by_region <- list()
+
+# Fit candidate models for the Western English Channel
+if (isTRUE(West_English_Channel)) {
+  fitted_models_by_region$west <- fit_candidate_models(region_name = "west")
+}
+
+# Fit candidate models for the Eastern English Channel
+if (isTRUE(East_English_Channel)) {
+  fitted_models_by_region$east <- fit_candidate_models(region_name = "east")
+}
+
+
+# ------------------------------------------------------------------------------ #
+#### 3. SAVE FITTED CANDIDATE MODELS ####
+# ------------------------------------------------------------------------------ #
+
+# Save all fitted candidate models 
+saveRDS(fitted_models_by_region,
+        file.path(new_repertory_model,
+                  paste0(sp_name_safe, "_fitted_candidate_models.rds")))

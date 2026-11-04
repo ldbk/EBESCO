@@ -1,9 +1,38 @@
 
+# ============================================================================== #
+# SELECT FISH SPECIES FOR EBESCO ANALYSES - ECGFS AND WCGFS
+# ============================================================================== #
+#
+# Description:
+#   Identify actively sound-producing fish recorded in the Eastern and Western
+#   Channel Ground Fish Surveys (2018 onward), add two EBESCO target species,
+#   and evaluate annual occurrence in survey hauls by region.
+#
+# Objectives:
+#   1. Match surveyed species against the Looby et al. (2022) sound-production
+#      database and identify species with documented active sound production.
+#   2. Include two additional EBESCO target species and flag species listed
+#      for fishery statistics in the FAO ASFIS dataset.
+#   3. Calculate annual haul-level occurrence percentages by survey and species.
+#   4. Retain species-region combinations with at least 10% occurrence in
+#      every year for which a species-year record is present.
+#   5. Visualize occurrence patterns and prepare regional selection criteria.
+#
+# Inputs:
+#   - ECGFS and WCGFS catch and operation CSV files.
+#   - Looby et al. (2022) fish sound-production Excel dataset.
+#   - FAO ASFIS species CSV dataset.
+#
+# Output:
+#   - species_criteria_region_10percent.rds (optional; export commented out).
+#   - Diagnostic heatmaps of annual occurrence percentage and haul counts.
+# ============================================================================== #
 
-# ------------------------------------------------------------------------------#
-#### LOAD THE DATA #### 
-# ------------------------------------------------------------------------------#
-# EAST CGFS
+# ------------------------------------------------------------------------------ #
+#### 1. LOAD SURVEY AND SPECIES REFERENCE DATA #### 
+# ------------------------------------------------------------------------------ #
+
+# Load ECGFS catch and operation records; remove duplicates and retain 2018 onward
 catch_ECGFS <- readr::read_delim("01_DATA/survey/ECGFS/CGFS_1988_2024_ELFIC.V1.4_catch_2025-03-28.csv",
                           delim = ";", escape_double = FALSE, trim_ws = TRUE, show_col_types = FALSE)
 catch_ECGFS <- catch_ECGFS %>% dplyr::distinct() %>% dplyr::filter(year >= 2018)
@@ -14,7 +43,7 @@ operation_ECGFS <- readr::read_delim("01_DATA/survey/ECGFS/CGFS_1988_2024_ELFIC.
 operation_ECGFS <- operation_ECGFS %>% dplyr::distinct() %>% dplyr::filter(year >= 2018)
 
 
-# WEST CGFS
+# Load WCGFS catch and operation records; remove duplicates and retain 2018 onward
 catch_WCGFS <-  readr::read_delim("01_DATA/survey/WCGFS/WCGFS_2018_2024_ELFIC.V1.5_catch_2025-03-31.csv", 
                            delim = ";", escape_double = FALSE, trim_ws = TRUE, show_col_types = FALSE)
 catch_WCGFS <- catch_WCGFS %>% dplyr::distinct()%>% dplyr::filter(year >= 2018)
@@ -24,23 +53,23 @@ operation_WCGFS <-  readr::read_delim("01_DATA/survey/WCGFS/WCGFS_2018_2024_ELFI
                                delim = ";", escape_double = FALSE, trim_ws = TRUE, show_col_types = FALSE)
 operation_WCGFS <- operation_WCGFS %>% dplyr::distinct()%>% dplyr::filter(year >= 2018)
 
-# ACTIVE SOUND PRODUCER 
+
+# Load the reference database of fish sound-production evidence
 # Load Looby et al. (2022) fish sound production dataset
 # https://link.springer.com/article/10.1007/s11160-022-09702-1 
 fish_soundproduction <- readxl::read_excel("01_DATA/soniferous_fish_Looby_etal2022.xlsx", sheet ="Data")%>%
   dplyr::rename(scientificName = `Scientific Name`)
 
-# Commercial importance 
+# Load the FAO ASFIS reference list for fishery statistics
 # © FAO. 2026. ASFIS List of Species for Fishery Statistics Purposes. In: Fisheries and Aquaculture. [Cited Friday, February 13th 2026]. 
 # https://www.fao.org/fishery/en/collection/asfis
 fish_commercial_importance <- readr::read_csv("01_DATA/ASFIS_sp_2025.csv", show_col_types = FALSE)%>%
-  dplyr::rename(scientificName = Scientific_Name)
+  dplyr::rename(scientificName = `Scientific_Name`)
 
 
-
-#-------------------------------------------------------------------------------#
-#### WEST CGFS : EXTRACT ACTIVE SOUND PRODUCER ####
-#-------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------- #
+#### 2. IDENTIFY ACTIVELY SOUND-PRODUCING SPECIES - WCGFS ####
+# ------------------------------------------------------------------------------- #
 
 list_species_WCGFS <- unique(catch_WCGFS$scientificName) 
 
@@ -58,25 +87,14 @@ fish_activeproduction_WCGFS <- fish_subset_WCGFS %>%
 # List of actively sound-producing species
 species_activeprod_WCGFS <- unique(fish_activeproduction_WCGFS$scientificName)
 
-# species_activeprod_WCGFS
-# [1] "Conger conger"            "Clupea harengus"         
-# [3] "Engraulis encrasicolus"   "Gadus morhua"            
-# [5] "Melanogrammus aeglefinus" "Micromesistius poutassou"
-# [7] "Pollachius pollachius"    "Molva molva"             
-# [9] "Merluccius merluccius"    "Capros aper"             
-# [11] "Trachurus trachurus"      "Pagellus bogaraveo"      
-# [13] "Chelidonichthys cuculus"  "Chelidonichthys lucerna" 
-# [15] "Eutrigla gurnardus"       "Hippocampus hippocampus" 
-# [17] "Zeus faber"               "Dasyatis pastinaca"      
-# [19] "Squalus acanthias" 
-
 selection_criteria_west_df <- data.frame(species = species_activeprod_WCGFS,
                                          west_region = TRUE,
                                          active_sound = TRUE)
 
-#-------------------------------------------------------------------------------#
-#### EAST CGFS : EXTRACT ACTIVE SOUND PRODUCER  ####
-#-------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------- #
+#### 3. IDENTIFY ACTIVELY SOUND-PRODUCING SPECIES - ECGFS ####
+# ------------------------------------------------------------------------------- #
 
 list_species_ECGFS <- unique(catch_ECGFS$scientificName) 
 
@@ -94,18 +112,6 @@ fish_activeproduction_ECGFS <- fish_subset_ECGFS %>%
 # List of actively sound-producing species
 species_activeprod_ECGFS <- unique(fish_activeproduction_ECGFS$scientificName)
 
-# species_activeprod_ECGFS
-# [1] "Anguilla anguilla"         "Conger conger"            
-# [3] "Clupea harengus"           "Engraulis encrasicolus"   
-# [5] "Gadus morhua"              "Micromesistius poutassou" 
-# [7] "Pollachius pollachius"     "Capros aper"              
-# [9] "Trachurus trachurus"       "Gobius niger"             
-# [11] "Gobius paganellus"         "Pomatoschistus minutus"   
-# [13] "Symphodus melops"          "Pagellus bogaraveo"       
-# [15] "Helicolenus dactylopterus" "Chelidonichthys cuculus"  
-# [17] "Chelidonichthys lucerna"   "Eutrigla gurnardus"       
-# [19] "Hippocampus hippocampus"   "Zeus faber"    
-
 selection_criteria_east_df <- data.frame(species = species_activeprod_ECGFS,
                                          east_region = TRUE,
                                          active_sound = TRUE)
@@ -120,10 +126,9 @@ selection_criteria_df <- dplyr::full_join(selection_criteria_east_df,
   dplyr::select(species, east_region, west_region, active_sound)
 
 
-
-#-------------------------------------------------------------------------------#
-#### ADD TWO TARGET SPECIES OF EBESCO PROJECT (NOT ACTIVE SOUND PRODUCERS)  ####
-#-------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------- #
+#### 4. INCLUDE ADDITIONAL EBESCO TARGET SPECIES ####
+# ------------------------------------------------------------------------------- #
 
 selection_criteria_df <- selection_criteria_df %>%
   dplyr::add_row(species = "Dicentrarchus labrax",
@@ -135,9 +140,10 @@ selection_criteria_df <- selection_criteria_df %>%
                  west_region = FALSE,   # gear, capturability
                  active_sound = FALSE)
 
-#-------------------------------------------------------------------------------#
-#### ADD ARGUMENT COMMERCIAL IMPORTANCE ####
-#-------------------------------------------------------------------------------#
+
+# ------------------------------------------------------------------------------- #
+#### 5. FLAG SPECIES LISTED FOR FISHERY STATISTICS ####
+# ------------------------------------------------------------------------------- #
 
 commercial_species <- fish_commercial_importance %>%
   dplyr::filter(FishStat_Data == "YES") %>%
@@ -147,18 +153,19 @@ selection_criteria_df <- selection_criteria_df %>%
   dplyr::mutate(commercial_importance = species %in% commercial_species)
 
 
-#-------------------------------------------------------------------------------#
-#### WEST CGFS : PROPORTION OF PRESENCE PER YEAR PER SPECIES (ALL SPECIES CONSIDERED)  ####
-#-------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------- #
+#### 6. CALCULATE ANNUAL SPECIES OCCURRENCE - WCGFS ####
+# ------------------------------------------------------------------------------- #
+
 # Number of hauls per year
 number_haul_year_WCGFS <- operation_WCGFS %>%
   dplyr::group_by(year)%>%
-  dplyr::summarise(nb_haul = length(unique(haulID)))
+  dplyr::summarise(nb_haul = dplyr::n_distinct(haulID), .groups = "drop")
 
 # Species presence per year
 count_species_presence_year_WCGFS <- catch_WCGFS %>%
   dplyr::group_by(scientificName, year) %>%
-  dplyr::summarise(nb_presence = length(unique(haulID)))
+  dplyr::summarise(nb_presence = dplyr::n_distinct(haulID), .groups = "drop")
 
 # Join yearly presence with annual number of hauls and compute proportion of presence
 count_peryear_WCGFS <- count_species_presence_year_WCGFS %>%
@@ -166,18 +173,19 @@ count_peryear_WCGFS <- count_species_presence_year_WCGFS %>%
   dplyr::mutate(prop_pres = 100*nb_presence/nb_haul)
 
 
-#-------------------------------------------------------------------------------#
-#### EAST CGFS : PROPORTION OF PRESENCE PER YEAR PER SPECIES (ALL SPECIES CONSIDERED)  ####
-#-------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------- #
+#### 7. CALCULATE ANNUAL SPECIES OCCURRENCE - ECGFS ####
+# ------------------------------------------------------------------------------- #
+
 # Number of hauls per year
 number_haul_year_ECGFS <- operation_ECGFS %>%
   dplyr::group_by(year)%>%
-  dplyr::summarise(nb_haul = length(unique(haulID)))
+  dplyr::summarise(nb_haul = dplyr::n_distinct(haulID), .groups = "drop")
 
 # Species presence per year
 count_species_presence_year_ECGFS <- catch_ECGFS %>%
   dplyr::group_by(scientificName, year) %>%
-  dplyr::summarise(nb_presence = length(unique(haulID)))
+  dplyr::summarise(nb_presence = dplyr::n_distinct(haulID), .groups = "drop")
 
 # Join yearly presence with annual number of hauls and compute proportion of presence
 count_peryear_ECGFS <- count_species_presence_year_ECGFS %>%
@@ -185,9 +193,13 @@ count_peryear_ECGFS <- count_species_presence_year_ECGFS %>%
   dplyr::mutate(prop_pres = 100*nb_presence/nb_haul)
 
 
-#-------------------------------------------------------------------------------#
-####  ANNUAL PROPORTION OF PRESENCE OF ACTIVE SOUND PRODUCER + TARGETS OF EBESCO #### 
-#-------------------------------------------------------------------------------#
+# ------------------------------------------------------------------------------- #
+#### 8. EVALUATE SPECIES OCCURRENCE BY REGION ####
+# ------------------------------------------------------------------------------- #
+
+#### 8.1. Prepare occurrence data for candidate species ####
+# ------------------------------------------------------------------------------- #
+
 # WEST CGFS 
 selected_species_west <- selection_criteria_df %>%
   dplyr::filter(west_region) %>% dplyr::pull(species)
@@ -204,16 +216,47 @@ species_activeprod_ECGFS_count <- count_peryear_ECGFS %>%
   dplyr::filter(scientificName %in% selected_species_east)%>% 
   dplyr::mutate(region = "east")
 
-# COMBINE ALL 
+# Combine occurrence data from both regions
 all_activesoundprod_CGFS <- bind_rows(species_activeprod_WCGFS_count, species_activeprod_ECGFS_count)%>%
   dplyr::mutate(region = factor(region, levels = c("west", "east")))
 
-all_activesoundprod_CGFS_10percent <- all_activesoundprod_CGFS %>%
-  group_by(scientificName, region)%>%
-  filter(min(prop_pres) >= 10)%>%
-  ungroup()
 
-# PLOT PRPORTION OF PRESENCE OF SELECTED SPECIES
+#### 8.2. Calculate global occurrence across all survey years ####
+# ------------------------------------------------------------------------------- #
+
+# Calculate global occurrence separately for each region.
+# The denominator includes all hauls, including years without species captures.
+total_hauls_east <- sum(number_haul_year_ECGFS$nb_haul)
+total_hauls_west <- sum(number_haul_year_WCGFS$nb_haul)
+
+global_occurrence <- all_activesoundprod_CGFS %>%
+  dplyr::group_by(scientificName, region) %>%
+  dplyr::summarise(total_presence = sum(nb_presence), .groups = "drop") %>%
+  dplyr::mutate(total_hauls = dplyr::if_else(region == "east",
+                                             total_hauls_east,
+                                             total_hauls_west),
+                global_occurence = 100 * total_presence / total_hauls) %>%
+  dplyr::select(scientificName, region, global_occurence) %>%
+  tidyr::pivot_wider(names_from = region, 
+                     values_from = global_occurence,
+                     names_prefix = "global_occurrence_")
+
+
+#### 8.3. Select species with at least 10% annual occurrence ####
+# ------------------------------------------------------------------------------- #
+
+# Retain species-region combinations with at least 10% occurrence
+# in every year represented in the annual occurrence data.
+all_activesoundprod_CGFS_10percent <- all_activesoundprod_CGFS %>%
+  dplyr::group_by(scientificName, region) %>%
+  dplyr::filter(min(prop_pres) >= 10) %>%
+  dplyr::ungroup()
+
+
+# ------------------------------------------------------------------------------- #
+#### 9. VISUALIZE ANNUAL SPECIES OCCURRENCE #### 
+# ------------------------------------------------------------------------------- #
+# PLOT PROPORTION OF PRESENCE OF SELECTED SPECIES
 all_activesoundprod_CGFS_10percent %>%
   ggplot2::ggplot(aes(x = factor(year), 
              y = factor(scientificName, levels = rev(sort(unique(scientificName)))), 
@@ -257,6 +300,9 @@ all_activesoundprod_CGFS %>%
                  legend.position ="right")
 
 
+# ------------------------------------------------------------------------------- #
+#### 9. FINALIZE REGION-SPECIFIC SPECIES SELECTION ####
+# ------------------------------------------------------------------------------- #
 
 # Data frame of species selection criteria by region,
 # restricted to species reaching at least 10% occurrence
@@ -280,22 +326,15 @@ selection_updated_10percent <- selection_filtered %>%
   mutate(east_region = east_region & coalesce(east, FALSE),
          west_region = west_region & coalesce(west, FALSE)) %>%
   dplyr::select(-east, -west)%>%
-  arrange(species)
-
-#-------------------------------------------------------------------------------#
-####  SELECTED SPECIES #### 
-#-------------------------------------------------------------------------------#
-
-# saveRDS(selection_updated_10percent,
-#         file = here::here("01_DATA", "species_criteria_region_10percent.rds"))
+  arrange(species)%>%
+  dplyr::left_join(global_occurrence, by = c("species" = "scientificName"))
 
 
+# ------------------------------------------------------------------------------- #
+#### 10. SAVE FINAL SPECIES SELECTION #### 
+# ------------------------------------------------------------------------------- #
 
-
-# all_activesoundprod_CGFS_large <- all_activesoundprod_CGFS %>%
-#   dplyr::select(scientificName, year, region, prop_pres) %>%
-#   tidyr::pivot_wider(names_from = year, values_from = prop_pres, values_fill=0)
-# 
-# writexl::write_xlsx(all_activesoundprod_CGFS_large, "all_activesoundprod_CGFS.xlsx")
+saveRDS(selection_updated_10percent,
+        file = here::here("01_DATA", "species_criteria_region_10percent.rds"))
 
 
