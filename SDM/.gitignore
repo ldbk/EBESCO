@@ -48,20 +48,14 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
-01_DATA
-!01_DATA/README.md
-
-05_OUTPUTS
-!05_OUTPUTS/README.md
-
-02_EXPLORE_DATA/outputs_data_exploration/**
-!02_EXPLORE_DATA/outputs_data_exploration/README.md
-
-# DATA
+# DATA: ignore contents but keep README
 /01_DATA/*
 !/01_DATA/README.md
 
-
-# OUTPUTS
+# OUTPUTS: ignore contents but keep README
 /05_OUTPUTS/*
 !/05_OUTPUTS/README.md
+
+# EXPLORATORY OUTPUTS: ignore contents but keep README
+/02_EXPLORE_DATA/outputs_data_exploration/*
+!/02_EXPLORE_DATA/outputs_data_exploration/README.md
