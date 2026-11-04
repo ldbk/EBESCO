@@ -56,3 +56,12 @@ rsconnect/
 
 02_EXPLORE_DATA/outputs_data_exploration/**
 !02_EXPLORE_DATA/outputs_data_exploration/README.md
+
+# DATA
+/01_DATA/*
+!/01_DATA/README.md
+
+
+# OUTPUTS
+/05_OUTPUTS/*
+!/05_OUTPUTS/README.md
