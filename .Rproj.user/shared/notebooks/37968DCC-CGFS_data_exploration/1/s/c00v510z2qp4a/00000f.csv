@@ -1,0 +1,8 @@
+"0",""
+"0","data_CGFS_crs %>% "
+"0","  filter(totalWeightKg > 0)%>%"
+"0","ggplot(aes(x = totalWeightKg, y = -depth)) +"
+"0","  geom_point() +"
+"0","  facet_wrap(~ year, scales = ""free_x"") +"
+"0","  labs(x = ""total weight per haul (kg)"", y = ""depth"")+"
+"0","  ggtitle(bquote(""Distribution of "" * italic(.(sp_scientific)) * "" catch weight per year across depth (excluding 0)""))"

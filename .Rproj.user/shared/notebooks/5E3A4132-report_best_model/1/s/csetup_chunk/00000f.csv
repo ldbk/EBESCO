@@ -1,0 +1,4 @@
+"0","knitr::opts_knit$set(root.dir = getwd())                                # garde le working dir actif"
+"0","knitr::opts_knit$set(envir = globalenv())                               # utilise l'env global"
+"0","knitr::opts_chunk$set(echo = FALSE, message=FALSE,warning=FALSE)"
+"0",""

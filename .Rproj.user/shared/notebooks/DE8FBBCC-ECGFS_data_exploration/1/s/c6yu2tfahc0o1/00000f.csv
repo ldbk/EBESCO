@@ -1,0 +1,8 @@
+"0",""
+"0","basemap(limits = bbox ) +"
+"0","  geom_spatial_point(data = operation_CGFS, "
+"0","                     aes(x = startLongDD, y = startLatDD), color = ""blue"")+"
+"0","  facet_wrap(~ year)+"
+"0","  ggtitle(""Spatial distribution of haul start positions by year from the CGFS campaign"")+"
+"0","  labs(x=""Longitude"", y=""Latitude"")"
+"0",""

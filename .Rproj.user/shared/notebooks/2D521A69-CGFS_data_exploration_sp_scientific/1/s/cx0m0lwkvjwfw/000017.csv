@@ -1,0 +1,8 @@
+"0",""
+"0","  sp_data_CGFS_density %>%"
+"0","    ggplot(aes(x = densityKgKm2)) +"
+"0","    geom_histogram(fill = ""grey70"", color = ""black"") +"
+"0","    facet_wrap(~ year, scales = ""free_y"") +"
+"0","    labs(x = ""Densité (kg/km²)"", y = ""Nombre de traits"","
+"0","         title = ""Distribution des densités par année (zéros inclus)"")"
+"0",""

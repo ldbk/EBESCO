@@ -1,0 +1,6 @@
+"0",""
+"0","ggplot(data_CGFS_crs, aes(x = substrate, y = densityKgKm2, color = densityKgKm2 == 0)) +"
+"0","  geom_jitter(alpha =0.4) +"
+"0","  scale_color_manual(values = c(""TRUE"" = ""red"", ""FALSE"" = ""blue""),  guide = ""none"") +"
+"0","  labs(x = ""Nature du substrat"",  y = ""Densité (kg/km²)"", subtitle = ""Rouge : densité = 0, Bleu : densité > 0"") +"
+"0","  ggtitle(bquote(""Densité de "" * italic(.(sp_scientific)) * "" en fonction de la nature du substrat""))"

@@ -1,0 +1,5 @@
+"0",""
+"0","ggplot(subset(data_CGFS_crs, densityKgKm2 > 0), aes(x = substrate, y = densityKgKm2)) +"
+"0","  geom_boxplot(outliers = FALSE)+"
+"0","  labs(x = ""Nature du substrat"", y = ""Densité (kg/km²)"", subtitle = ""Densités = 0 exclues"") +"
+"0","  ggtitle(bquote(""Densité de "" * italic(.(sp_scientific)) * "" en fonction de la nature du substrat""))"

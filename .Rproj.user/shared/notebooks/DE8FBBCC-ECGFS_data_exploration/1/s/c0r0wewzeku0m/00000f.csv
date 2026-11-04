@@ -1,0 +1,7 @@
+"0",""
+"0","ggplot(subset(bar_clean_CGFS_density, densityKgKm2 > 0), aes(x = factor(year), y = densityKgKm2)) +"
+"0","  geom_boxplot(outlier.alpha = 0.4)+"
+"0","  geom_violin(alpha=0.4) +"
+"0","  theme_minimal() +"
+"0","  labs(x = ""Years"", y = ""Density (kg/km², only >0)"", subtitle = ""Excluding absence,  haul 2017_1_V0434_35 removed"") +"
+"0","  ggtitle(expression(paste(""Density of "", italic(""Dicentrarchus labrax""), "" per haul (excluding zeros)"")))"

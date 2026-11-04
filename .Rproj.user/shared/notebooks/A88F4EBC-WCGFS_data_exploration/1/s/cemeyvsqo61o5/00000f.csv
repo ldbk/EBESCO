@@ -1,0 +1,7 @@
+"0",""
+"0","ggplot(subset(sole_data_CGFS_density, densityKgKm2 > 0), aes(x = factor(year), y = densityKgKm2)) +"
+"0","  geom_boxplot(outlier.alpha = 0.4)+"
+"0","  geom_violin(alpha=0.4) +"
+"0","  theme_minimal() +"
+"0","  labs(x = ""Years"", y = ""Density (kg/km², only >0)"") +"
+"0","  ggtitle(expression(paste(""Density of "", italic(""Solea solea""), "" per haul (excluding zeros)"")))"

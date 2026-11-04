@@ -1,0 +1,8 @@
+"0",""
+"0","# Scatter plot of density by year"
+"0",""
+"0","ggplot(data_CGFS_crs, aes(x = totalNumber, y = totalWeightKg)) +"
+"0","  geom_point()+"
+"0","  ggtitle(bquote(""Relationship between abundance and biomass of "" * italic(.(sp_scientific))))+"
+"0","  labs(x = ""Total number of individuals"", y = ""Total weight (kg)"", subtitle = ""Each point represents a haul"")"
+"0",""

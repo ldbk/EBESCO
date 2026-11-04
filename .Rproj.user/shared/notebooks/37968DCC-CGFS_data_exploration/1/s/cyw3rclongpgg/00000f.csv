@@ -1,0 +1,8 @@
+"0",""
+"0","data_CGFS_crs %>% "
+"0","  filter(densityKgKm2 > 0)%>%"
+"0","ggplot(aes(x = densityKgKm2, y = -depth)) +"
+"0","  geom_point()+"
+"0","    labs(x = ""density (kg/km²)"", y = ""depth"", subtitle = ""1 point = 1 haul"")+"
+"0","      ggtitle(bquote(""Distribution of "" * italic(.(sp_scientific)) * "" density across depth per year (excluding 0)""))"
+"0",""

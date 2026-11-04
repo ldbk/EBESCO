@@ -1,0 +1,27 @@
+{
+    "id": "179EF40C",
+    "path": "~/EBESCO/02_EXPLORE_DATA/ECGFS_data_exploration.Rmd",
+    "project_path": "02_EXPLORE_DATA/ECGFS_data_exploration.Rmd",
+    "type": "r_markdown",
+    "hash": "742258096",
+    "contents": "",
+    "dirty": false,
+    "created": 1764929418302.0,
+    "source_on_save": false,
+    "relative_order": 5,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "40,38",
+        "scrollLine": "0",
+        "last_setup_crc32": ""
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1764929486,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1764929523970,
+    "read_only": false,
+    "read_only_alternatives": []
+}

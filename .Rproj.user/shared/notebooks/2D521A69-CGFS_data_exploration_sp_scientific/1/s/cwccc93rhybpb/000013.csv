@@ -1,0 +1,6 @@
+"0",""
+"0","data_CGFS_crs %>%"
+"0","ggplot(aes(x = substrate, fill = factor(presence_absence))) +"
+"0","  geom_bar(alpha = 0.6, color = ""black"", position = ""dodge"")+"
+"0","  labs(title = ""Nombre de présence absence en fonction de la nature du substrat"", "
+"0","       x = ""Nombre de présence absence"", y = ""Nature du substrat"", fill = ""Occurence"") "

@@ -1,0 +1,8 @@
+"0",""
+"0","sole_data_CGFS_density %>% "
+"0","  filter(totalWeightKg > 0)%>%"
+"0","ggplot(aes(x = totalWeightKg, y = depth)) +"
+"0","  geom_point() +"
+"0","  labs(x = ""total weight of sole per haul (kg)"", y = ""depth"","
+"0","       title = ""Distribution of sole catch weight across depth (excluding 0)"")"
+"0",""

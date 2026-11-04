@@ -1,0 +1,31 @@
+{
+    "id": "0AC68C5D",
+    "path": "~/EBESCO/04_MODEL/report/report.Rmd",
+    "project_path": "04_MODEL/report/report.Rmd",
+    "type": "r_markdown",
+    "hash": "128490876",
+    "contents": "",
+    "dirty": false,
+    "created": 1764928674927.0,
+    "source_on_save": false,
+    "relative_order": 4,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "451,3",
+        "scrollLine": "0",
+        "last_setup_crc32": "",
+        "rmdVisualMode": "false",
+        "rmdVisualCollapsedChunks": "",
+        "rmdVisualModeLocation": "2:0",
+        "chunk_output_type": "inline"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1764928899,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1764928899966,
+    "read_only": false,
+    "read_only_alternatives": []
+}

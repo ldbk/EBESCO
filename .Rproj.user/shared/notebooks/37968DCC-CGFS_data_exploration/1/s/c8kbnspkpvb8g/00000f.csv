@@ -1,0 +1,3 @@
+"0",""
+"0","# Plot the cropped bathymetry"
+"0","plot(bathy_EC, main = ""Bathymetry of English Channel"", col = terrain.colors(100))"

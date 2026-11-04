@@ -1,0 +1,6 @@
+"0",""
+"0","# Load the bathymetry raster from a NetCDF file"
+"0","bathy_emod <- raster(here(""01_DATA"", ""bathymetry"", ""E4_2024.nc"", ""E4_2024.nc""), varname =""elevation"")"
+"0",""
+"0","# Plot the bathymetry"
+"0","plot(bathy_emod, main = ""Bathymetry EMOD 2024"", col = terrain.colors(100))"

@@ -1,0 +1,6 @@
+"0",""
+"0","  # Load the bathymetry raster from a NetCDF file"
+"0","  substrate_EC <- raster(here(""01_DATA"", ""substrate"", ""Substrate5levels_English_Channel.nc""))"
+"0","  "
+"0","  # Plot the cropped bathymetry"
+"0","  plot(substrate_EC, main = ""Substrate of English Channel"")"

@@ -1,0 +1,8 @@
+"0",""
+"0","# Scatter plot of density by year"
+"0",""
+"0","ggplot(data_CGFS_crs, aes(x = factor(year), y = densityKgKm2)) +"
+"0","  geom_point()+"
+"0","  theme_minimal() +"
+"0","  labs(x = ""Years"", y = ""Density (kg/km²)"")+"
+"0","  ggtitle(bquote(""Density of "" * italic(.(sp_scientific)) * "" per haul across years""))"
